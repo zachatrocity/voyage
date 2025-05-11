@@ -1,7 +1,12 @@
-# Development
+<div align="center">
+  
+# ✉️ Voyage ✈️
 
-Your new jumpstart project includes basic organization with an organized `assets` folder and a `components` folder. 
-If you chose to develop with the router feature, you will also have a `views` folder.
+</div>
+
+This repository contains frontend app for Voyage, a self-hosted travel plan aggregator. The [backend](https://github.com/zachatrocity/voyage-backend) is responsible for processing emails using notmuch and mbsync, and providing a REST API for accessing and organizing travel-related information.
+
+### Folder Structure
 
 ```
 project/
@@ -16,15 +21,6 @@ project/
 │  │  ├─ blog.rs # The component that will render at the /blog/:id route
 │  │  ├─ home.rs # The component that will render at the / route
 ├─ Cargo.toml # The Cargo.toml file defines the dependencies and feature flags for your project
-```
-
-### Tailwind
-1. Install npm: https://docs.npmjs.com/downloading-and-installing-node-js-and-npm
-2. Install the Tailwind CSS CLI: https://tailwindcss.com/docs/installation
-3. Run the following command in the root of the project to start the Tailwind CSS compiler:
-
-```bash
-npx tailwindcss -i ./input.css -o ./assets/tailwind.css --watch
 ```
 
 ### Using the Justfile
