@@ -1,21 +1,45 @@
 [application]
 
+# Web `build` & `serve` dist path
+out_dir = "dist"
+
+# resource (static) file folder
+asset_dir = "assets"
+
 [web.app]
 
 # HTML title tag content
-title = "voyage"
+title = "Voyage"
 
-# include `assets` in web platform
-[web.resource]
+[web.watcher]
 
-# Additional CSS style files
-style = []
+index_on_404 = true
 
-# Additional JavaScript files
-script = []
+watch_path = ["src"]
 
-[web.resource.dev]
+[bundle]
+# Bundle identifier
+identifier = "app.voyage.zachatrocity"
 
-# Javascript code file
-# serve: [dev-server] only
-script = []
+# Bundle publisher
+publisher = "Zach Russell"
+
+# Bundle icon
+icon = ["assets/favicon.ico"]
+
+# Bundle resources
+resources = ["assets/*"]
+
+# Bundle copyright
+copyright = ""
+
+# Bundle category
+category = "Travel"
+
+# Bundle short description
+short_description = "A self-hosted travel email aggregator."
+
+# Bundle long description
+long_description = """
+Voyage searches your inbox for travel confirmations, itineraries, and bookings.
+"""
