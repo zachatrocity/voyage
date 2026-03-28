@@ -11,3 +11,7 @@ pub mod input;
 pub mod bottom_sheet;
 pub mod email_detail_card;
 pub mod trip_chip;
+pub mod search_bar;
+pub mod filter_chips;
+pub mod discovery_banner;
+pub mod email_list_item;

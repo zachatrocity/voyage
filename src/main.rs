@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use components::Hero;
-use views::{Blog, EmailDetail, Home, Navbar};
+use views::{Blog, EmailDetail, EmailList, Home, Navbar};
 
 mod components;
 mod types;
@@ -96,6 +96,8 @@ enum Route {
         Home {},
         #[route("/blog/:id")]
         Blog { id: i32 },
+        #[route("/emails")]
+        EmailList {},
     #[end_layout]
     #[route("/email")]
     EmailDetail {},
