@@ -8,3 +8,7 @@ pub mod app_header;
 pub mod bottom_nav;
 pub mod trip_card;
 pub mod suggested_email_card;
+pub mod search_bar;
+pub mod filter_chips;
+pub mod discovery_banner;
+pub mod email_list_item;
