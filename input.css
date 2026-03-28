@@ -1,4 +1,32 @@
 @import "tailwindcss/preflight";
 @tailwind utilities;
 
-@plugin "daisyui";
+:root {
+  --background: #F5EFE6;
+  --foreground: #1C1917;
+  --card: #FFFFFF;
+  --card-foreground: #1C1917;
+  --primary: #1A6B72;
+  --primary-foreground: #FFFFFF;
+  --cta: #E87C4E;
+  --cta-foreground: #FFFFFF;
+  --accent: #7BB8C4;
+  --accent-foreground: #1C1917;
+  --muted: #78716C;
+  --border: #E7DDD4;
+}
+
+.dark {
+  --background: #0F1923;
+  --foreground: #F0EBE3;
+  --card: #1A2535;
+  --card-foreground: #F0EBE3;
+  --primary: #2DD4BF;
+  --primary-foreground: #0F1923;
+  --cta: #E87C4E;
+  --cta-foreground: #FFFFFF;
+  --accent: #7BB8C4;
+  --accent-foreground: #F0EBE3;
+  --muted: #8B9BA8;
+  --border: #2A3A4A;
+}

@@ -10,6 +10,8 @@ edition = "2021"
 dioxus = { version = "=0.7.3", features = ["router"] }
 dioxus-core = "=0.7.3"
 dioxus-free-icons = { version = "0.10", features = ["lucide"] }
+serde = { version = "1", features = ["derive"] }
+dioxus-primitives = { git = "https://github.com/DioxusLabs/components", version = "0.0.1", default-features = false }
 
 [features]
 default = ["web"]
