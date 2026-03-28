@@ -31,6 +31,11 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install Android NDK
+        run: |
+          sdkmanager "ndk;27.2.12479018"
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/27.2.12479018" >> $GITHUB_ENV
+
       - name: Install Dioxus CLI (dx)
         shell: bash
         run: |
@@ -39,55 +44,23 @@ jobs:
           tar -xzf /tmp/dx.tar.gz -C /usr/local/bin
           dx --version
 
-      - name: Bundle (android, arm64)
-        run: dx bundle --android --target aarch64-linux-android
+      - name: Build debug APK (arm64)
+        run: dx build --platform android --target aarch64-linux-android
 
-      - name: Locate AAB
+      - name: Locate APK
         shell: bash
         run: |
           set -euxo pipefail
-          AAB_PATH=$(find dist -type f -name "*aarch64*android*.aab" | head -n 1)
-          if [[ -z "${AAB_PATH}" ]]; then
-            AAB_PATH=$(find dist -type f -name "*.aab" | head -n 1)
-          fi
-          if [[ -z "${AAB_PATH}" ]]; then
-            echo "No AAB found under dist/" >&2
+          APK_PATH=$(find dist -type f -name "*.apk" | head -n 1)
+          if [[ -z "${APK_PATH}" ]]; then
+            echo "No APK found under dist/" >&2
             find dist -maxdepth 6 -type f | sed 's/^/ - /'
             exit 1
           fi
-          echo "AAB_PATH=${AAB_PATH}" >> $GITHUB_ENV
+          echo "APK_PATH=${APK_PATH}" >> $GITHUB_ENV
 
-      - name: Upload Android bundle (AAB)
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: voyage-android-bundle-aab-arm64
-          path: ${{ env.AAB_PATH }}
-
-      - name: Generate universal APK from AAB (bundletool)
-        shell: bash
-        run: |
-          set -euxo pipefail
-          mkdir -p dist/apk
-          BUNDLETOOL_VERSION=1.18.3
-          curl -fsSL -o /tmp/bundletool.jar \
-            "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar"
-
-          java -jar /tmp/bundletool.jar build-apks \
-            --bundle="${AAB_PATH}" \
-            --output=dist/apk/voyage.apks \
-            --mode=universal
-
-          unzip -o dist/apk/voyage.apks -d dist/apk/out
-          UNIVERSAL_APK=$(find dist/apk/out -type f -name "universal.apk" | head -n 1)
-          if [[ -z "${UNIVERSAL_APK}" ]]; then
-            echo "bundletool did not produce universal.apk" >&2
-            find dist/apk/out -type f | sed 's/^/ - /'
-            exit 1
-          fi
-          cp "${UNIVERSAL_APK}" dist/apk/voyage-universal.apk
-
-      - name: Upload universal APK (for sideloading)
-        uses: actions/upload-artifact@v4
-        with:
-          name: voyage-android-universal-apk-arm64
-          path: dist/apk/voyage-universal.apk
+          name: voyage-android-debug-arm64
+          path: ${{ env.APK_PATH }}
