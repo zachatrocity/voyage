@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use components::Hero;
-use views::{Blog, Home, Navbar};
+use views::{Blog, Home, Itinerary, Navbar};
 
 mod components;
 mod types;
@@ -13,6 +13,7 @@ pub static EMAILS: GlobalSignal<Vec<Email>> = Signal::global(|| seed_emails());
 pub static TRIPS: GlobalSignal<Vec<Trip>> = Signal::global(|| seed_trips());
 pub static SELECTED_EMAIL: GlobalSignal<Option<String>> = Signal::global(|| None);
 pub static SELECTED_TRIP: GlobalSignal<Option<String>> = Signal::global(|| None);
+pub static ITINERARY: GlobalSignal<Vec<ItineraryItem>> = Signal::global(|| seed_itinerary());
 
 fn seed_emails() -> Vec<Email> {
     vec![
@@ -69,6 +70,55 @@ fn seed_emails() -> Vec<Email> {
     ]
 }
 
+fn seed_itinerary() -> Vec<ItineraryItem> {
+    vec![
+        ItineraryItem {
+            id: "i1".into(),
+            trip_id: "t1".into(),
+            email_id: "e1".into(),
+            title: "Depart BOI → MCO".into(),
+            detail: "Delta DL-442 · 8:00 AM – 3:47 PM".into(),
+            sub_detail: Some("Seat 24B · Economy · Conf: XKRT72".into()),
+            date: "Jun 14".into(),
+            category: Category::Flight,
+            status: ItineraryStatus::Confirmed,
+        },
+        ItineraryItem {
+            id: "i2".into(),
+            trip_id: "t1".into(),
+            email_id: "e2".into(),
+            title: "Check-in: Disney's Polynesian Resort".into(),
+            detail: "Jun 14–18 · 4 nights".into(),
+            sub_detail: Some("Conf: WDW-88432".into()),
+            date: "Jun 14".into(),
+            category: Category::Hotel,
+            status: ItineraryStatus::Confirmed,
+        },
+        ItineraryItem {
+            id: "i3".into(),
+            trip_id: "t1".into(),
+            email_id: "e1".into(),
+            title: "Magic Kingdom Park".into(),
+            detail: "All-day · 3 tickets".into(),
+            sub_detail: None,
+            date: "Jun 15".into(),
+            category: Category::Activity,
+            status: ItineraryStatus::Pending,
+        },
+        ItineraryItem {
+            id: "i4".into(),
+            trip_id: "t2".into(),
+            email_id: "e3".into(),
+            title: "Carnival Horizon Embarkation".into(),
+            detail: "Port Canaveral · Noon boarding".into(),
+            sub_detail: Some("Booking: CCL-99201".into()),
+            date: "Jun 18".into(),
+            category: Category::Cruise,
+            status: ItineraryStatus::Confirmed,
+        },
+    ]
+}
+
 fn seed_trips() -> Vec<Trip> {
     vec![
         Trip {
@@ -96,6 +146,8 @@ enum Route {
         Home {},
         #[route("/blog/:id")]
         Blog { id: i32 },
+        #[route("/itinerary")]
+        Itinerary {},
 }
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");

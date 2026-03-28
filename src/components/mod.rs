@@ -8,3 +8,6 @@ pub mod button;
 pub mod card;
 pub mod badge;
 pub mod input;
+pub mod hero_header;
+pub mod status_badge;
+pub mod timeline_item;
