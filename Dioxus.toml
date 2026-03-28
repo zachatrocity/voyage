@@ -25,7 +25,7 @@ identifier = "app.voyage.zachatrocity"
 publisher = "Zach Russell"
 
 # Bundle icon
-icon = ["assets/favicon.ico"]
+icon = ["assets/icons/icon-1024.png", "assets/icons/icon-512.png", "assets/icons/icon-192.png", "assets/icons/icon-144.png", "assets/icons/icon-96.png", "assets/icons/icon-72.png", "assets/icons/icon-48.png"]
 
 # Bundle resources
 resources = ["assets/*"]
