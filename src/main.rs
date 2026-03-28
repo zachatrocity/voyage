@@ -1,6 +1,5 @@
 use dioxus::prelude::*;
 
-use components::Hero;
 use views::{Blog, Home, Navbar};
 
 mod components;
