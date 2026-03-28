@@ -21,7 +21,7 @@ pub fn Navbar() -> Element {
             }
             Link {
                 to: Route::Blog { id: 1 },
-                "Blog"
+                "Trips"
             }
         }
 
