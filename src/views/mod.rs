@@ -16,3 +16,6 @@ pub use blog::Blog;
 
 mod navbar;
 pub use navbar::Navbar;
+
+mod email_detail;
+pub use email_detail::EmailDetail;

@@ -8,3 +8,6 @@ pub mod button;
 pub mod card;
 pub mod badge;
 pub mod input;
+pub mod bottom_sheet;
+pub mod email_detail_card;
+pub mod trip_chip;
