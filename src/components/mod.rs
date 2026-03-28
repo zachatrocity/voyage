@@ -1,6 +1,4 @@
-//! The components module contains all shared components for our app. Components are the building blocks of dioxus apps.
-//! They can be used to defined common UI elements like buttons, forms, and modals. In this template, we define a Hero
-//! component  to be used in our app.
+//! The components module contains all shared components for our app.
 
 mod hero;
 pub use hero::Hero;
@@ -11,3 +9,7 @@ pub mod input;
 pub mod hero_header;
 pub mod status_badge;
 pub mod timeline_item;
+pub mod search_bar;
+pub mod filter_chips;
+pub mod discovery_banner;
+pub mod email_list_item;
