@@ -1,32 +1,23 @@
+use crate::components::bottom_nav::BottomNavBar;
 use crate::Route;
 use dioxus::prelude::*;
 
-const NAVBAR_CSS: Asset = asset!("/assets/styling/navbar.css");
-
-/// The Navbar component that will be rendered on all pages of our app since every page is under the layout.
-///
-///
-/// This layout component wraps the UI of [Route::Home] and [Route::Blog] in a common navbar. The contents of the Home and Blog
-/// routes will be rendered under the outlet inside this component
 #[component]
 pub fn Navbar() -> Element {
+    let route: Route = use_route();
+    let active_tab = match route {
+        Route::Home {} => "home",
+        Route::EmailList {} => "emails",
+        Route::Itinerary {} => "trips",
+        Route::EmailDetail {} => "emails",
+    };
+
     rsx! {
-        document::Link { rel: "stylesheet", href: NAVBAR_CSS }
-
-        div {
-            id: "navbar",
-            Link {
-                to: Route::Home {},
-                "Home"
+        div { class: "flex flex-col min-h-screen",
+            div { class: "flex-1 pb-16",
+                Outlet::<Route> {}
             }
-            Link {
-                to: Route::Blog { id: 1 },
-                "Trips"
-            }
+            BottomNavBar { active_tab: active_tab.to_string() }
         }
-
-        // The `Outlet` component is used to render the next component inside the layout. In this case, it will render either
-        // the [`Home`] or [`Blog`] component depending on the current route.
-        Outlet::<Route> {}
     }
 }

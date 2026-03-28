@@ -1,5 +1,4 @@
 use crate::components::app_header::AppHeader;
-use crate::components::bottom_nav::BottomNavBar;
 use crate::components::suggested_email_card::SuggestedEmailCard;
 use crate::components::trip_card::TripCard;
 use crate::{EMAILS, TRIPS};
@@ -12,10 +11,10 @@ pub fn Home() -> Element {
     let untagged: Vec<_> = emails.iter().filter(|e| e.trip_id.is_none()).cloned().collect();
 
     rsx! {
-        div { class: "flex flex-col h-screen bg-background",
+        div { class: "flex flex-col h-full bg-background",
             AppHeader {}
             div { class: "overflow-y-auto flex-1",
-                div { class: "px-4 pt-4 pb-24",
+                div { class: "px-4 pt-4 pb-4",
                     h2 { class: "text-lg font-semibold text-foreground mb-3", "Upcoming Trips" }
                     for trip in trips.iter() {
                         TripCard { key: "{trip.id}", trip: trip.clone() }
@@ -38,7 +37,6 @@ pub fn Home() -> Element {
                     }
                 }
             }
-            BottomNavBar { active_tab: "home".to_string() }
         }
     }
 }
