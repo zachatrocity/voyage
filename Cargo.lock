@@ -4935,6 +4935,7 @@ dependencies = [
  "dioxus-primitives",
  "gloo-timers",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

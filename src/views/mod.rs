@@ -14,3 +14,6 @@ pub use email_detail::EmailDetail;
 
 mod email_list;
 pub use email_list::EmailList;
+
+mod settings;
+pub use settings::Settings;
