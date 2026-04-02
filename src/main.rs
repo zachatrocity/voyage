@@ -3,6 +3,7 @@ use dioxus::prelude::*;
 use components::Toast;
 use views::{EmailDetail, EmailList, Home, Itinerary, Navbar, Settings};
 
+pub mod api;
 mod components;
 pub mod config;
 pub mod notification;

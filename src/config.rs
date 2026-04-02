@@ -10,7 +10,7 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            server_url: String::new(),
+            server_url: "http://localhost:8181".into(),
             api_key: String::new(),
         }
     }
