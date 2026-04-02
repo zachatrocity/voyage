@@ -1,8 +1,10 @@
 use dioxus::prelude::*;
 
+use components::Toast;
 use views::{EmailDetail, EmailList, Home, Itinerary, Navbar};
 
 mod components;
+pub mod notification;
 mod types;
 mod views;
 
@@ -173,6 +175,7 @@ fn App() -> Element {
         }
         div { class: "min-h-screen w-full bg-background text-foreground",
             Router::<Route> {}
+            Toast {}
         }
     }
 }
