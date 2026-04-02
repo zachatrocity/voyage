@@ -1,13 +1,15 @@
 use dioxus::prelude::*;
 
 use components::Toast;
-use views::{EmailDetail, EmailList, Home, Itinerary, Navbar};
+use views::{EmailDetail, EmailList, Home, Itinerary, Navbar, Settings};
 
 mod components;
+pub mod config;
 pub mod notification;
 mod types;
 mod views;
 
+use config::load_config;
 use types::*;
 
 pub static EMAILS: GlobalSignal<Vec<Email>> = Signal::global(|| seed_emails());
@@ -149,8 +151,11 @@ enum Route {
         EmailList {},
         #[route("/itinerary")]
         Itinerary {},
-        #[route("/email")]
-        EmailDetail {},
+        #[route("/settings")]
+        Settings {},
+    #[end_layout]
+    #[route("/email")]
+    EmailDetail {},
 }
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
@@ -164,6 +169,10 @@ fn main() {
 
 #[component]
 fn App() -> Element {
+    use_future(|| async {
+        load_config().await;
+    });
+
     rsx! {
         document::Link { rel: "icon", href: FAVICON }
         document::Link { rel: "stylesheet", href: MAIN_CSS }

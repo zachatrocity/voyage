@@ -1,0 +1,77 @@
+use dioxus::prelude::*;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AppConfig {
+    pub server_url: String,
+    pub api_key: String,
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            server_url: String::new(),
+            api_key: String::new(),
+        }
+    }
+}
+
+pub static APP_CONFIG: GlobalSignal<AppConfig> = Signal::global(|| AppConfig::default());
+
+pub async fn load_config() {
+    let mut eval = document::eval(
+        r#"
+        let raw = localStorage.getItem("voyage_config");
+        dioxus.send(raw || "");
+        "#,
+    );
+    if let Ok(val) = eval.recv::<String>().await {
+        if !val.is_empty() {
+            if let Ok(config) = serde_json::from_str::<AppConfig>(&val) {
+                *APP_CONFIG.write() = config;
+            }
+        }
+    }
+}
+
+pub async fn save_config(url: &str, key: &str) {
+    let config = AppConfig {
+        server_url: url.to_string(),
+        api_key: key.to_string(),
+    };
+    if let Ok(json) = serde_json::to_string(&config) {
+        let js = format!(
+            r#"localStorage.setItem("voyage_config", {});"#,
+            serde_json::to_string(&json).unwrap_or_default()
+        );
+        document::eval(&js);
+    }
+    *APP_CONFIG.write() = config;
+}
+
+pub async fn validate_server(url: &str, key: &str) -> Result<(), String> {
+    let js = format!(
+        r#"
+        try {{
+            let resp = await fetch("{}/api/v1/trips", {{
+                headers: {{ "X-API-Key": "{}" }}
+            }});
+            if (resp.ok) {{
+                dioxus.send("ok");
+            }} else {{
+                dioxus.send("error:" + resp.status);
+            }}
+        }} catch (e) {{
+            dioxus.send("error:" + e.message);
+        }}
+        "#,
+        url.trim_end_matches('/'),
+        key
+    );
+    let mut eval = document::eval(&js);
+    match eval.recv::<String>().await {
+        Ok(result) if result == "ok" => Ok(()),
+        Ok(result) => Err(result.strip_prefix("error:").unwrap_or(&result).to_string()),
+        Err(_) => Err("Failed to connect to server".to_string()),
+    }
+}
