@@ -39,8 +39,8 @@ pub fn SetupModal() -> Element {
     }
 
     rsx! {
-        div { class: "fixed inset-0 z-[100] flex items-center justify-center bg-black/50",
-            div { class: "bg-card rounded-2xl shadow-xl w-[90%] max-w-md p-6 mx-4",
+        div { class: "fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-hidden",
+            div { class: "bg-card rounded-2xl shadow-2xl w-[90%] max-w-md p-6 mx-4 relative",
                 h2 { class: "text-xl font-bold text-foreground mb-1", "Welcome to Voyage" }
                 p { class: "text-muted text-sm mb-6", "Connect to your Voyage server to get started." }
 

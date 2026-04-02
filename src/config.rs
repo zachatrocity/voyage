@@ -54,7 +54,7 @@ pub async fn validate_server(url: &str, key: &str) -> Result<(), String> {
         r#"
         try {{
             let resp = await fetch("{}/api/v1/trips", {{
-                headers: {{ "Authorization": "Bearer {}" }}
+                headers: {{ "X-API-Key": "{}" }}
             }});
             if (resp.ok) {{
                 dioxus.send("ok");
