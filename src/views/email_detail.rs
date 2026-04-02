@@ -38,7 +38,7 @@ pub fn EmailDetail() -> Element {
     let navigator = use_navigator();
 
     rsx! {
-        div { class: "flex flex-col h-screen bg-background",
+        div { class: "flex flex-col h-full bg-background",
             // Header
             div { class: "bg-card border-b border-border px-4 py-3 flex items-center gap-3",
                 button {

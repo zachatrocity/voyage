@@ -1,7 +1,6 @@
 use dioxus::prelude::*;
 
-use components::Hero;
-use views::{Blog, EmailDetail, EmailList, Home, Itinerary, Navbar};
+use views::{EmailDetail, EmailList, Home, Itinerary, Navbar};
 
 mod components;
 mod types;
@@ -144,15 +143,12 @@ enum Route {
     #[layout(Navbar)]
         #[route("/")]
         Home {},
-        #[route("/blog/:id")]
-        Blog { id: i32 },
         #[route("/emails")]
         EmailList {},
         #[route("/itinerary")]
         Itinerary {},
-    #[end_layout]
-    #[route("/email")]
-    EmailDetail {},
+        #[route("/email")]
+        EmailDetail {},
 }
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
