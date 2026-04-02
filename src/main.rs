@@ -183,9 +183,9 @@ fn App() -> Element {
             content: "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
         }
         div { class: "min-h-screen w-full bg-background text-foreground",
-            SetupModal {}
             Router::<Route> {}
             Toast {}
+            SetupModal {}
         }
     }
 }

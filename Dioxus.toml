@@ -43,3 +43,6 @@ short_description = "A self-hosted travel email aggregator."
 long_description = """
 Voyage searches your inbox for travel confirmations, itineraries, and bookings.
 """
+
+[bundle.android]
+manifest = "android/AndroidManifest.xml"
