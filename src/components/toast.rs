@@ -25,7 +25,7 @@ pub fn Toast() -> Element {
             };
 
             rsx! {
-                div { class: "fixed bottom-20 left-1/2 -translate-x-1/2 z-50 {bg_class} text-white rounded-xl shadow-lg px-4 py-3 flex flex-row items-center gap-3 max-w-sm",
+                div { class: "fixed bottom-20 left-4 right-4 z-50 {bg_class} text-white rounded-xl shadow-lg px-4 py-3 flex flex-row items-center gap-3",
                     span { class: "flex-1 text-sm", "{notif.message}" }
                     button {
                         class: "text-white opacity-80 hover:opacity-100 font-bold text-lg leading-none",
