@@ -3,7 +3,9 @@ use dioxus::prelude::*;
 use components::Hero;
 use views::{Blog, EmailDetail, EmailList, Home, Itinerary, Navbar};
 
+pub mod api;
 mod components;
+pub mod config;
 mod types;
 mod views;
 
