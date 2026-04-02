@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use components::{setup_modal::SetupModal, Toast};
+use components::Toast;
 use views::{EmailDetail, EmailList, Home, Itinerary, Navbar, Settings};
 
 mod components;
@@ -185,7 +185,6 @@ fn App() -> Element {
         div { class: "min-h-screen w-full bg-background text-foreground",
             Router::<Route> {}
             Toast {}
-            SetupModal {}
         }
     }
 }

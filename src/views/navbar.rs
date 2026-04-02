@@ -1,10 +1,20 @@
 use crate::components::bottom_nav::BottomNavBar;
+use crate::config::APP_CONFIG;
 use crate::Route;
 use dioxus::prelude::*;
 
 #[component]
 pub fn Navbar() -> Element {
     let route: Route = use_route();
+    let nav = navigator();
+
+    // Redirect to settings if no server configured (skip if already there)
+    if APP_CONFIG.read().server_url.is_empty() {
+        if route != (Route::Settings {}) {
+            nav.replace(Route::Settings {});
+        }
+    }
+
     let active_tab = match route {
         Route::Home {} => "home",
         Route::EmailList {} => "emails",
