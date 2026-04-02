@@ -4,37 +4,41 @@ use dioxus_free_icons::icons::ld_icons::{LdHome, LdMail, LdMap, LdSettings};
 use dioxus_free_icons::Icon;
 
 #[component]
-pub fn BottomNavBar(active_tab: String) -> Element {
-    let home_class = if active_tab == "home" { "text-primary" } else { "text-muted" };
-    let emails_class = if active_tab == "emails" { "text-primary" } else { "text-muted" };
-    let trips_class = if active_tab == "trips" { "text-primary" } else { "text-muted" };
-    let settings_class = if active_tab == "settings" { "text-primary" } else { "text-muted" };
+fn NavItem(
+    id: &'static str,
+    label: &'static str,
+    active_tab: String,
+    to: Route,
+    children: Element,
+) -> Element {
+    let color_class = if active_tab == id {
+        "text-primary"
+    } else {
+        "text-muted"
+    };
+    rsx! {
+        Link { to: to, class: "flex flex-col items-center gap-1 {color_class} no-underline",
+            {children}
+            span { class: "text-xs", "{label}" }
+        }
+    }
+}
 
+#[component]
+pub fn BottomNavBar(active_tab: String) -> Element {
     rsx! {
         div { class: "fixed bottom-0 left-0 right-0 flex justify-around items-center h-16 bg-card border-t border-border z-50",
-            Link {
-                to: Route::Home {},
-                class: "flex flex-col items-center gap-1 {home_class}",
+            NavItem { id: "home", label: "Home", active_tab: active_tab.clone(), to: Route::Home {},
                 Icon { icon: LdHome, width: 20, height: 20 }
-                span { class: "text-xs", "Home" }
             }
-            Link {
-                to: Route::EmailList {},
-                class: "flex flex-col items-center gap-1 {emails_class}",
+            NavItem { id: "emails", label: "Emails", active_tab: active_tab.clone(), to: Route::EmailList {},
                 Icon { icon: LdMail, width: 20, height: 20 }
-                span { class: "text-xs", "Emails" }
             }
-            Link {
-                to: Route::Itinerary {},
-                class: "flex flex-col items-center gap-1 {trips_class}",
+            NavItem { id: "trips", label: "Trips", active_tab: active_tab.clone(), to: Route::Itinerary {},
                 Icon { icon: LdMap, width: 20, height: 20 }
-                span { class: "text-xs", "Trips" }
             }
-            Link {
-                to: Route::Home {},
-                class: "flex flex-col items-center gap-1 {settings_class}",
+            NavItem { id: "settings", label: "Settings", active_tab: active_tab.clone(), to: Route::Settings {},
                 Icon { icon: LdSettings, width: 20, height: 20 }
-                span { class: "text-xs", "Settings" }
             }
         }
     }

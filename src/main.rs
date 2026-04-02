@@ -1,14 +1,16 @@
 use dioxus::prelude::*;
 
-use components::Hero;
-use views::{Blog, EmailDetail, EmailList, Home, Itinerary, Navbar};
+use components::Toast;
+use views::{EmailDetail, EmailList, Home, Itinerary, Navbar, Settings};
 
 pub mod api;
 mod components;
 pub mod config;
+pub mod notification;
 mod types;
 mod views;
 
+use config::load_config;
 use types::*;
 
 pub static EMAILS: GlobalSignal<Vec<Email>> = Signal::global(|| seed_emails());
@@ -146,12 +148,12 @@ enum Route {
     #[layout(Navbar)]
         #[route("/")]
         Home {},
-        #[route("/blog/:id")]
-        Blog { id: i32 },
         #[route("/emails")]
         EmailList {},
         #[route("/itinerary")]
         Itinerary {},
+        #[route("/settings")]
+        Settings {},
     #[end_layout]
     #[route("/email")]
     EmailDetail {},
@@ -168,6 +170,10 @@ fn main() {
 
 #[component]
 fn App() -> Element {
+    use_future(|| async {
+        load_config().await;
+    });
+
     rsx! {
         document::Link { rel: "icon", href: FAVICON }
         document::Link { rel: "stylesheet", href: MAIN_CSS }
@@ -179,6 +185,7 @@ fn App() -> Element {
         }
         div { class: "min-h-screen w-full bg-background text-foreground",
             Router::<Route> {}
+            Toast {}
         }
     }
 }

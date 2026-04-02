@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_free_icons::icons::ld_icons::{LdArrowLeft, LdMail, LdMap, LdSettings};
+use dioxus_free_icons::icons::ld_icons::LdArrowLeft;
 use dioxus_free_icons::Icon;
 
 use crate::components::discovery_banner::DiscoveryBanner;
@@ -42,7 +42,7 @@ pub fn EmailList() -> Element {
     });
 
     rsx! {
-        div { class: "flex flex-col h-screen bg-background",
+        div { class: "flex flex-col h-full bg-background",
             // Header
             div { class: "bg-card border-b border-border px-4 py-3 flex items-center gap-3",
                 button { class: "text-muted",
@@ -66,7 +66,7 @@ pub fn EmailList() -> Element {
             }
 
             // Email list
-            div { class: "flex-1 overflow-y-auto py-2 pb-24",
+            div { class: "flex-1 overflow-y-auto py-2 pb-4",
                 for email in filtered().iter() {
                     EmailListItem {
                         key: "{email.id}",
@@ -82,22 +82,6 @@ pub fn EmailList() -> Element {
                         span { class: "text-4xl mb-2", "📭" }
                         span { class: "text-sm", "No emails match your search" }
                     }
-                }
-            }
-
-            // Bottom nav bar
-            div { class: "fixed bottom-0 left-0 right-0 bg-card border-t border-border px-6 py-2 flex justify-around items-center",
-                button { class: "flex flex-col items-center gap-0.5 text-primary",
-                    Icon { icon: LdMail, width: 20, height: 20 }
-                    span { class: "text-xs font-medium", "Emails" }
-                }
-                button { class: "flex flex-col items-center gap-0.5 text-muted",
-                    Icon { icon: LdMap, width: 20, height: 20 }
-                    span { class: "text-xs", "Trips" }
-                }
-                button { class: "flex flex-col items-center gap-0.5 text-muted",
-                    Icon { icon: LdSettings, width: 20, height: 20 }
-                    span { class: "text-xs", "Settings" }
                 }
             }
         }

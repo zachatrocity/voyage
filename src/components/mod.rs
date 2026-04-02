@@ -20,3 +20,6 @@ pub mod search_bar;
 pub mod filter_chips;
 pub mod discovery_banner;
 pub mod email_list_item;
+pub mod toast;
+pub use toast::Toast;
+

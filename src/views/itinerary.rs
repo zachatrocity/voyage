@@ -26,7 +26,7 @@ pub fn Itinerary() -> Element {
     });
 
     rsx! {
-        div { class: "flex flex-col h-screen bg-background",
+        div { class: "flex flex-col h-full bg-background",
             HeroHeader { trip: trip() }
 
             div { class: "flex-1 overflow-y-auto px-4 pt-4 pb-24",
