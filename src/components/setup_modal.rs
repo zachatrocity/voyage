@@ -3,12 +3,12 @@ use dioxus::prelude::*;
 use crate::components::button::Button;
 use crate::components::input::Input;
 use crate::config::{save_config, validate_server, APP_CONFIG};
+use crate::notification::notify_error;
 
 #[component]
 pub fn SetupModal() -> Element {
     let mut server_url = use_signal(|| String::new());
     let mut api_key = use_signal(|| String::new());
-    let mut error = use_signal(|| Option::<String>::None);
     let mut loading = use_signal(|| false);
 
     let on_save = move |_| {
@@ -16,17 +16,16 @@ pub fn SetupModal() -> Element {
             let url = server_url();
             let key = api_key();
             if url.is_empty() {
-                error.set(Some("Server URL is required".to_string()));
+                notify_error("Server URL is required");
                 return;
             }
             loading.set(true);
-            error.set(None);
             match validate_server(&url, &key).await {
                 Ok(()) => {
                     save_config(&url, &key).await;
                 }
                 Err(e) => {
-                    error.set(Some(format!("Connection failed: {e}")));
+                    notify_error(format!("Connection failed: {e}"));
                 }
             }
             loading.set(false);
@@ -63,10 +62,6 @@ pub fn SetupModal() -> Element {
                             oninput: move |e: FormEvent| api_key.set(e.value()),
                         }
                     }
-                }
-
-                if let Some(err) = error() {
-                    p { class: "text-cta text-sm mb-4", "{err}" }
                 }
 
                 Button {

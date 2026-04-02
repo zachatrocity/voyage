@@ -5,14 +5,13 @@ use crate::components::bottom_nav::BottomNavBar;
 use crate::components::button::Button;
 use crate::components::input::Input;
 use crate::config::{save_config, validate_server, APP_CONFIG};
+use crate::notification::{notify_error, notify_success};
 
 #[component]
 pub fn Settings() -> Element {
     let config = APP_CONFIG();
     let mut server_url = use_signal(|| config.server_url.clone());
     let mut api_key = use_signal(|| config.api_key.clone());
-    let mut error = use_signal(|| Option::<String>::None);
-    let mut success = use_signal(|| false);
     let mut loading = use_signal(|| false);
 
     let masked_key = {
@@ -31,19 +30,17 @@ pub fn Settings() -> Element {
             let url = server_url();
             let key = api_key();
             if url.is_empty() {
-                error.set(Some("Server URL is required".to_string()));
+                notify_error("Server URL is required");
                 return;
             }
             loading.set(true);
-            error.set(None);
-            success.set(false);
             match validate_server(&url, &key).await {
                 Ok(()) => {
                     save_config(&url, &key).await;
-                    success.set(true);
+                    notify_success("Connected successfully!");
                 }
                 Err(e) => {
-                    error.set(Some(format!("Connection failed: {e}")));
+                    notify_error(format!("Connection failed: {e}"));
                 }
             }
             loading.set(false);
@@ -68,7 +65,6 @@ pub fn Settings() -> Element {
                                 value: "{server_url}",
                                 oninput: move |e: FormEvent| {
                                     server_url.set(e.value());
-                                    success.set(false);
                                 },
                             }
                         }
@@ -83,17 +79,9 @@ pub fn Settings() -> Element {
                                 value: "{api_key}",
                                 oninput: move |e: FormEvent| {
                                     api_key.set(e.value());
-                                    success.set(false);
                                 },
                             }
                         }
-                    }
-
-                    if let Some(err) = error() {
-                        p { class: "text-cta text-sm mt-3", "{err}" }
-                    }
-                    if success() {
-                        p { class: "text-primary text-sm mt-3", "Connected successfully!" }
                     }
 
                     div { class: "mt-4",
