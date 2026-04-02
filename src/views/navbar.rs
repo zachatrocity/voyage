@@ -10,6 +10,7 @@ pub fn Navbar() -> Element {
         Route::EmailList {} => "emails",
         Route::Itinerary {} => "trips",
         Route::EmailDetail {} => "emails",
+        Route::Settings {} => "settings",
     };
 
     rsx! {
