@@ -1,3 +1,4 @@
+use crate::api::EmailResult;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -58,6 +59,21 @@ pub struct Trip {
     pub date_range: String,
     pub email_count: usize,
     pub confirmed_count: usize,
+}
+
+impl From<EmailResult> for Email {
+    fn from(r: EmailResult) -> Self {
+        Self {
+            id: r.id,
+            subject: r.subject,
+            sender: r.sender,
+            sender_email: r.sender_email,
+            date: r.date,
+            body_preview: r.body_preview,
+            category: r.category,
+            trip_id: r.trip_id,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -1,44 +1,89 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::icons::ld_icons::LdArrowLeft;
 use dioxus_free_icons::Icon;
+use gloo_timers::future::TimeoutFuture;
 
+use crate::api;
 use crate::components::discovery_banner::DiscoveryBanner;
 use crate::components::email_list_item::EmailListItem;
 use crate::components::filter_chips::FilterChips;
 use crate::components::search_bar::SearchBar;
-use crate::types::Category;
-use crate::{EMAILS, SELECTED_EMAIL};
+use crate::notification::notify_error;
+use crate::types::{Category, Email};
+use crate::SELECTED_EMAIL;
 
 #[component]
 pub fn EmailList() -> Element {
     let mut search = use_signal(|| String::new());
     let mut active_filter = use_signal(|| "All".to_string());
+    let mut emails = use_signal(|| Vec::<Email>::new());
+    let mut loading = use_signal(|| true);
+    let mut unreviewed_count = use_signal(|| 0usize);
 
+    // Debounced query that triggers API calls
+    let mut debounced_query = use_signal(|| String::new());
+
+    // Debounce: when search changes, wait 300ms then update debounced_query
+    use_effect(move || {
+        let query = search().clone();
+        spawn(async move {
+            TimeoutFuture::new(300).await;
+            // Only update if search hasn't changed during the wait
+            if search() == query {
+                debounced_query.set(query);
+            }
+        });
+    });
+
+    // Fetch emails when debounced_query changes
+    let _email_resource = use_resource(move || {
+        let query = debounced_query().clone();
+        async move {
+            loading.set(true);
+            match api::search_emails(&query, Some(50)).await {
+                Ok(results) => {
+                    let converted: Vec<Email> =
+                        results.emails.into_iter().map(Email::from).collect();
+                    emails.set(converted);
+                }
+                Err(e) => {
+                    notify_error(format!("Failed to load emails: {e}"));
+                    emails.set(Vec::new());
+                }
+            }
+            loading.set(false);
+        }
+    });
+
+    // Fetch untagged travel email count for discovery banner
+    let _untagged_resource = use_resource(move || async move {
+        match api::search_emails("", Some(50)).await {
+            Ok(results) => {
+                let count = results.emails.iter().filter(|e| e.trip_id.is_none()).count();
+                unreviewed_count.set(count);
+            }
+            Err(_) => {
+                unreviewed_count.set(0);
+            }
+        }
+    });
+
+    // Client-side category filter
     let filtered = use_memo(move || {
-        let emails = EMAILS.read();
-        emails
-            .iter()
+        let all = emails.read();
+        all.iter()
             .filter(|e| {
-                let q = search().to_lowercase();
-                let matches_search = q.is_empty()
-                    || e.subject.to_lowercase().contains(&q)
-                    || e.sender.to_lowercase().contains(&q);
-                let matches_filter = match active_filter().as_str() {
+                match active_filter().as_str() {
                     "Flights ✈️" => e.category == Category::Flight,
                     "Hotels 🏨" => e.category == Category::Hotel,
                     "Car Rental 🚗" => e.category == Category::CarRental,
                     "Cruises 🚢" => e.category == Category::Cruise,
                     "Other" => e.category == Category::Other || e.category == Category::Activity,
                     _ => true, // "All"
-                };
-                matches_search && matches_filter
+                }
             })
             .cloned()
             .collect::<Vec<_>>()
-    });
-
-    let unreviewed_count = use_memo(move || {
-        EMAILS.read().iter().filter(|e| e.trip_id.is_none()).count()
     });
 
     rsx! {
@@ -67,20 +112,25 @@ pub fn EmailList() -> Element {
 
             // Email list
             div { class: "flex-1 overflow-y-auto py-2 pb-4",
-                for email in filtered().iter() {
-                    EmailListItem {
-                        key: "{email.id}",
-                        email: email.clone(),
-                        on_click: move |id: String| {
-                            *SELECTED_EMAIL.write() = Some(id);
-                        },
+                if loading() {
+                    div { class: "flex flex-col items-center justify-center py-12 text-muted",
+                        div { class: "w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-3" }
+                        span { class: "text-sm", "Loading emails..." }
                     }
-                }
-
-                if filtered().is_empty() {
+                } else if filtered().is_empty() {
                     div { class: "flex flex-col items-center justify-center py-12 text-muted",
                         span { class: "text-4xl mb-2", "📭" }
                         span { class: "text-sm", "No emails match your search" }
+                    }
+                } else {
+                    for email in filtered().iter() {
+                        EmailListItem {
+                            key: "{email.id}",
+                            email: email.clone(),
+                            on_click: move |id: String| {
+                                *SELECTED_EMAIL.write() = Some(id);
+                            },
+                        }
                     }
                 }
             }
