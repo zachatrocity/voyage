@@ -20,8 +20,18 @@ pub fn EmailList() -> Element {
     let email_resource = use_resource(move || {
         let query = search().clone();
         async move {
-            match api::search_emails(&query, Some(50)).await {
-                Ok(results) => {
+            let client = match api::get_client() {
+                Ok(c) => c,
+                Err(e) => {
+                    notify_error(format!("Config error: {e}"));
+                    return Vec::new();
+                }
+            };
+            // Backend requires non-empty q param
+            let q = if query.is_empty() { "*".to_string() } else { query };
+            match client.search_emails(Some("50"), &q, None::<&str>).await {
+                Ok(resp) => {
+                    let results = resp.into_inner();
                     results.results.into_iter().map(Email::from).collect::<Vec<_>>()
                 }
                 Err(e) => {

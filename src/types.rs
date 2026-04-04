@@ -1,4 +1,4 @@
-use crate::api::EmailResult;
+use crate::voyage_api::types::NotmuchEmailResult;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -64,25 +64,36 @@ pub struct Trip {
     pub confirmed_count: usize,
 }
 
-impl From<EmailResult> for Email {
-    fn from(r: EmailResult) -> Self {
+impl From<NotmuchEmailResult> for Email {
+    fn from(r: NotmuchEmailResult) -> Self {
+        let from_str = r.from.unwrap_or_default();
         // Backend "from" field is like "Name <email@example.com>" — split it
-        let (sender, sender_email) = if let Some(start) = r.from.find('<') {
-            let name = r.from[..start].trim().to_string();
-            let email = r.from[start + 1..].trim_end_matches('>').to_string();
+        let (sender, sender_email) = if let Some(start) = from_str.find('<') {
+            let name = from_str[..start].trim().to_string();
+            let email = from_str[start + 1..].trim_end_matches('>').to_string();
             (if name.is_empty() { email.clone() } else { name }, email)
         } else {
-            (r.from.clone(), r.from.clone())
+            (from_str.clone(), from_str.clone())
+        };
+
+        // Map backend category string to our Category enum
+        let category = match r.category.as_deref().unwrap_or("other") {
+            "flight" => Category::Flight,
+            "hotel" => Category::Hotel,
+            "car_rental" => Category::CarRental,
+            "cruise" => Category::Cruise,
+            "activity" => Category::Activity,
+            _ => Category::Other,
         };
 
         Self {
-            id: r.message_id,
-            subject: r.subject,
+            id: r.message_id.unwrap_or_default(),
+            subject: r.subject.unwrap_or_default(),
             sender,
             sender_email,
-            date: r.date,
-            body_preview: r.body_preview,
-            category: r.category,
+            date: r.date.unwrap_or_default(),
+            body_preview: r.body_preview.unwrap_or_default(),
+            category,
             trip_id: r.trip_id,
         }
     }

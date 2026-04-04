@@ -8,6 +8,7 @@ mod components;
 pub mod config;
 pub mod notification;
 mod types;
+pub mod voyage_api;
 mod views;
 
 use config::load_config;
