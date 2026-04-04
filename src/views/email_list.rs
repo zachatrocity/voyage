@@ -42,12 +42,15 @@ pub fn EmailList() -> Element {
         }
     });
 
-    // Derive emails, unreviewed count, and filtered list from resource
-    let emails = email_resource.value();
-    let emails_read = emails.read();
-    let loading = emails_read.is_none();
-    let empty = Vec::new();
-    let email_list = emails_read.as_deref().unwrap_or(&empty);
+    // Clone data out of the resource signal immediately so the read guard
+    // is dropped before rsx! — holding it across the render causes a borrow
+    // panic when search triggers a resource restart.
+    let loading = email_resource.value().read().is_none();
+    let email_list: Vec<Email> = email_resource
+        .value()
+        .read()
+        .clone()
+        .unwrap_or_default();
 
     let unreviewed_count = email_list.iter().filter(|e| e.trip_id.is_none()).count();
 
