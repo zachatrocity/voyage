@@ -44,6 +44,14 @@ jobs:
           tar -xzf /tmp/dx.tar.gz -C /usr/local/bin
           dx --version
 
+      - name: Restore debug keystore
+        if: ${{ env.DEBUG_KEYSTORE != '' }}
+        env:
+          DEBUG_KEYSTORE: ${{ secrets.DEBUG_KEYSTORE }}
+        run: |
+          mkdir -p ~/.android
+          echo "$DEBUG_KEYSTORE" | base64 -d > ~/.android/debug.keystore
+
       - name: Build debug APK (arm64)
         run: dx build --platform android --target aarch64-linux-android
 
