@@ -18,18 +18,21 @@ pub fn EmailList() -> Element {
     let mut active_filter = use_signal(|| "All".to_string());
     let mut emails = use_signal(|| Vec::<Email>::new());
     let mut loading = use_signal(|| true);
-    let mut unreviewed_count = use_signal(|| 0usize);
 
     // Debounced query that triggers API calls
     let mut debounced_query = use_signal(|| String::new());
 
-    // Debounce: when search changes, wait 300ms then update debounced_query
+    // Debounce: when search changes, wait 300ms then update debounced_query.
+    // Each effect invocation captures a version counter to cancel stale timeouts.
+    let mut debounce_version = use_signal(|| 0u32);
     use_effect(move || {
         let query = search().clone();
+        let version = debounce_version() + 1;
+        debounce_version.set(version);
         spawn(async move {
             TimeoutFuture::new(300).await;
-            // Only update if search hasn't changed during the wait
-            if search() == query {
+            // Only fire if no newer keystroke has bumped the version
+            if debounce_version() == version {
                 debounced_query.set(query);
             }
         });
@@ -55,17 +58,9 @@ pub fn EmailList() -> Element {
         }
     });
 
-    // Fetch untagged travel email count for discovery banner
-    let _untagged_resource = use_resource(move || async move {
-        match api::search_emails("", Some(50)).await {
-            Ok(results) => {
-                let count = results.emails.iter().filter(|e| e.trip_id.is_none()).count();
-                unreviewed_count.set(count);
-            }
-            Err(_) => {
-                unreviewed_count.set(0);
-            }
-        }
+    // Derive unreviewed count from loaded emails (no separate API call)
+    let unreviewed_count = use_memo(move || {
+        emails.read().iter().filter(|e| e.trip_id.is_none()).count()
     });
 
     // Client-side category filter
