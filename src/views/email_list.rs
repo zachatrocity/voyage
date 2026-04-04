@@ -23,16 +23,16 @@ pub fn EmailList() -> Element {
     let mut debounced_query = use_signal(|| String::new());
 
     // Debounce: when search changes, wait 300ms then update debounced_query.
-    // Each effect invocation captures a version counter to cancel stale timeouts.
+    // Version counter cancels stale timeouts; use peek() to avoid tracking.
     let mut debounce_version = use_signal(|| 0u32);
     use_effect(move || {
         let query = search().clone();
-        let version = debounce_version() + 1;
+        let version = *debounce_version.peek() + 1;
         debounce_version.set(version);
         spawn(async move {
             TimeoutFuture::new(300).await;
             // Only fire if no newer keystroke has bumped the version
-            if debounce_version() == version {
+            if *debounce_version.peek() == version {
                 debounced_query.set(query);
             }
         });
