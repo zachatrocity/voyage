@@ -1,13 +1,16 @@
 use crate::api::EmailResult;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Category {
     Flight,
     Hotel,
     CarRental,
     Cruise,
     Activity,
+    #[default]
+    #[serde(other)]
     Other,
 }
 
@@ -63,11 +66,20 @@ pub struct Trip {
 
 impl From<EmailResult> for Email {
     fn from(r: EmailResult) -> Self {
+        // Backend "from" field is like "Name <email@example.com>" — split it
+        let (sender, sender_email) = if let Some(start) = r.from.find('<') {
+            let name = r.from[..start].trim().to_string();
+            let email = r.from[start + 1..].trim_end_matches('>').to_string();
+            (if name.is_empty() { email.clone() } else { name }, email)
+        } else {
+            (r.from.clone(), r.from.clone())
+        };
+
         Self {
-            id: r.id,
+            id: r.message_id,
             subject: r.subject,
-            sender: r.sender,
-            sender_email: r.sender_email,
+            sender,
+            sender_email,
             date: r.date,
             body_preview: r.body_preview,
             category: r.category,

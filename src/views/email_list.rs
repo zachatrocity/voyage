@@ -21,7 +21,9 @@ pub fn EmailList() -> Element {
         let query = search().clone();
         async move {
             match api::search_emails(&query, Some(50)).await {
-                Ok(results) => results.emails.into_iter().map(Email::from).collect::<Vec<_>>(),
+                Ok(results) => {
+                    results.results.into_iter().map(Email::from).collect::<Vec<_>>()
+                }
                 Err(e) => {
                     notify_error(format!("Failed to load emails: {e}"));
                     Vec::new()

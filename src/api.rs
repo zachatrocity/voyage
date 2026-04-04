@@ -5,6 +5,13 @@ use serde::{Deserialize, Serialize};
 use crate::config::APP_CONFIG;
 use crate::types::Category;
 
+/// Convenience re-export for views that need the count
+impl SearchResults {
+    pub fn emails(&self) -> &[EmailResult] {
+        &self.results
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Error type
 // ---------------------------------------------------------------------------
@@ -34,20 +41,29 @@ impl std::fmt::Display for ApiError {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EmailResult {
-    pub id: String,
+    pub message_id: String,
+    #[serde(default)]
+    pub thread_id: String,
     pub subject: String,
-    pub sender: String,
-    pub sender_email: String,
+    pub from: String,
     pub date: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub filename: String,
+    #[serde(default)]
     pub body_preview: String,
+    #[serde(default)]
     pub category: Category,
+    #[serde(default)]
     pub trip_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResults {
-    pub emails: Vec<EmailResult>,
-    pub total: usize,
+    pub query: String,
+    pub count: usize,
+    pub results: Vec<EmailResult>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -134,7 +150,9 @@ async fn handle_response<T: serde::de::DeserializeOwned>(
 
 pub async fn search_emails(query: &str, limit: Option<u32>) -> Result<SearchResults, ApiError> {
     let (client, base) = client()?;
-    let mut url = format!("{base}/search?q={}", urlencoding::encode(query));
+    // Backend requires non-empty q param; use "*" to list all emails
+    let q = if query.is_empty() { "*" } else { query };
+    let mut url = format!("{base}/search?q={}", urlencoding::encode(q));
     if let Some(l) = limit {
         url.push_str(&format!("&limit={l}"));
     }
