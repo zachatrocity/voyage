@@ -7,8 +7,8 @@ use crate::components::bottom_sheet::BottomSheet;
 use crate::components::email_detail_card::EmailDetailCard;
 use crate::components::trip_chip::TripChip;
 use crate::notification::{notify_error, notify_success};
-use crate::types::Email;
-use crate::{SELECTED_EMAIL, TRIPS};
+use crate::types::{Email, Trip};
+use crate::SELECTED_EMAIL;
 
 fn to_ui_email(e: &api::EmailResult) -> Email {
     Email {
@@ -29,6 +29,7 @@ pub fn EmailDetail() -> Element {
     let selected_id = use_memo(move || SELECTED_EMAIL.read().clone());
     let mut selected_trip_id = use_signal(|| Option::<String>::None);
     let mut refresh_nonce = use_signal(|| 0u64);
+    let mut trips_refresh_nonce = use_signal(|| 0u64);
 
     let email_resource = use_resource(move || {
         let email_id = selected_id();
@@ -38,6 +39,11 @@ pub fn EmailDetail() -> Element {
             let email = api::get_email(&id).await?;
             Ok::<Email, ApiError>(to_ui_email(&email))
         }
+    });
+
+    let trips_resource = use_resource(move || {
+        let _nonce = trips_refresh_nonce();
+        async move { api::list_trips().await }
     });
 
     let on_confirm = move |_| {
@@ -66,19 +72,16 @@ pub fn EmailDetail() -> Element {
     };
 
     let on_new_trip = move |_| {
-        let trip_name = format!("New Trip {}", TRIPS.read().len() + 1);
+        let next_name = match &*trips_resource.read_unchecked() {
+            Some(Ok(resp)) => format!("New Trip {}", resp.trips.len() + 1),
+            _ => "New Trip".to_string(),
+        };
 
         spawn(async move {
-            match api::create_trip(&trip_name, "Dates TBD").await {
+            match api::create_trip(&next_name, "Dates TBD").await {
                 Ok(created) => {
-                    TRIPS.write().push(crate::types::Trip {
-                        id: created.id.clone(),
-                        name: created.name.clone(),
-                        date_range: created.date_range.clone(),
-                        email_count: created.email_count,
-                        confirmed_count: created.confirmed_count,
-                    });
                     selected_trip_id.set(Some(created.id));
+                    trips_refresh_nonce += 1;
                     notify_success("Trip created");
                 }
                 Err(err) => notify_error(format!("Failed to create trip: {err}")),
@@ -90,7 +93,6 @@ pub fn EmailDetail() -> Element {
 
     rsx! {
         div { class: "flex flex-col h-screen bg-background",
-            // Header
             div { class: "bg-card border-b border-border px-4 py-3 flex items-center gap-3",
                 button {
                     class: "text-foreground",
@@ -126,22 +128,32 @@ pub fn EmailDetail() -> Element {
                 }
             }
 
-            // Bottom sheet: tag action
             BottomSheet {
                 h3 { class: "text-base font-bold text-foreground mb-1", "Add to Trip" }
                 p { class: "text-sm text-muted mb-4", "Choose a trip label for this email" }
 
-                // Trip chips
                 div { class: "flex flex-wrap gap-2 mb-4",
-                    for trip in TRIPS.read().iter() {
-                        TripChip {
-                            key: "{trip.id}",
-                            trip: trip.clone(),
-                            selected: selected_trip_id() == Some(trip.id.clone()),
-                            on_click: move |id: String| selected_trip_id.set(Some(id)),
-                        }
+                    match &*trips_resource.read_unchecked() {
+                        None => rsx! { span { class: "text-xs text-muted", "Loading trips..." } },
+                        Some(Err(err)) => rsx! { span { class: "text-xs text-red-600", "{err}" } },
+                        Some(Ok(resp)) => rsx! {
+                            for trip in resp.trips.iter() {
+                                TripChip {
+                                    key: "{trip.id}",
+                                    trip: Trip {
+                                        id: trip.id.clone(),
+                                        name: trip.name.clone(),
+                                        date_range: trip.date_range.clone(),
+                                        email_count: trip.email_count,
+                                        confirmed_count: trip.confirmed_count,
+                                    },
+                                    selected: selected_trip_id() == Some(trip.id.clone()),
+                                    on_click: move |id: String| selected_trip_id.set(Some(id)),
+                                }
+                            }
+                        },
                     }
-                    // New trip button
+
                     button {
                         class: "border border-dashed border-cta text-cta rounded-full px-3 py-1.5 text-sm",
                         onclick: on_new_trip,
@@ -149,7 +161,6 @@ pub fn EmailDetail() -> Element {
                     }
                 }
 
-                // Confirm button
                 button {
                     class: "w-full bg-cta text-white rounded-xl py-3 font-semibold text-sm",
                     onclick: on_confirm,

@@ -7,7 +7,7 @@ use crate::components::hero_header::HeroHeader;
 use crate::components::timeline_item::TimelineItem;
 use crate::notification::{notify_error, notify_success};
 use crate::types::{Category, ItineraryItem, ItineraryStatus, Trip};
-use crate::SELECTED_TRIP;
+use crate::{SELECTED_TRIP, TRIPS};
 
 fn infer_category(subject: &str, tags: &[String]) -> Category {
     let s = subject.to_ascii_lowercase();
@@ -146,6 +146,21 @@ pub fn Itinerary() -> Element {
             match api::create_trip(&next_name, "Dates TBD").await {
                 Ok(new_trip) => {
                     *SELECTED_TRIP.write() = Some(new_trip.id.clone());
+
+                    if let Ok(fresh) = api::list_trips().await {
+                        *TRIPS.write() = fresh
+                            .trips
+                            .into_iter()
+                            .map(|t| Trip {
+                                id: t.id,
+                                name: t.name,
+                                date_range: t.date_range,
+                                email_count: t.email_count,
+                                confirmed_count: t.confirmed_count,
+                            })
+                            .collect();
+                    }
+
                     refresh_nonce += 1;
                     notify_success("Trip created");
                 }
