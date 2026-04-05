@@ -44,13 +44,46 @@ jobs:
           tar -xzf /tmp/dx.tar.gz -C /usr/local/bin
           dx --version
 
+      - name: Require stable debug keystore on main builds
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          DEBUG_KEYSTORE: ${{ secrets.DEBUG_KEYSTORE }}
+        run: |
+          if [[ -z "$DEBUG_KEYSTORE" ]]; then
+            echo "ERROR: secrets.DEBUG_KEYSTORE is required for reproducible installable dev upgrades." >&2
+            echo "Without it, each CI run generates a new debug signing key and Android treats updates as a different signer." >&2
+            exit 1
+          fi
+
       - name: Restore debug keystore
-        if: ${{ env.DEBUG_KEYSTORE != '' }}
+        if: ${{ secrets.DEBUG_KEYSTORE != '' }}
         env:
           DEBUG_KEYSTORE: ${{ secrets.DEBUG_KEYSTORE }}
         run: |
           mkdir -p ~/.android
           echo "$DEBUG_KEYSTORE" | base64 -d > ~/.android/debug.keystore
+
+      - name: Stamp Android versionCode/versionName for upgrade-friendly CI installs
+        env:
+          VOYAGE_VERSION_CODE: ${{ github.run_number }}
+          VOYAGE_VERSION_NAME: ci-${{ github.run_number }}-${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+
+          path = "android/AndroidManifest.xml"
+          ns_android = "http://schemas.android.com/apk/res/android"
+          ET.register_namespace("android", ns_android)
+          ET.register_namespace("tools", "http://schemas.android.com/tools")
+
+          tree = ET.parse(path)
+          root = tree.getroot()
+          root.set(f"{{{ns_android}}}versionCode", os.environ["VOYAGE_VERSION_CODE"])
+          root.set(f"{{{ns_android}}}versionName", os.environ["VOYAGE_VERSION_NAME"])
+          tree.write(path, encoding="utf-8", xml_declaration=True)
+          print(f"Stamped {path} with versionCode={os.environ['VOYAGE_VERSION_CODE']}")
+          PY
 
       - name: Build debug APK (arm64)
         run: dx build --platform android --target aarch64-linux-android
@@ -66,6 +99,16 @@ jobs:
             exit 1
           fi
           echo "APK_PATH=${APK_PATH}" >> $GITHUB_ENV
+
+      - name: Print APK package/signing metadata
+        shell: bash
+        run: |
+          set -euxo pipefail
+          apksigner verify --print-certs "$APK_PATH" || true
+          BUILD_TOOLS_DIR=$(dirname "$(command -v apksigner)")
+          if [[ -x "$BUILD_TOOLS_DIR/aapt" ]]; then
+            "$BUILD_TOOLS_DIR/aapt" dump badging "$APK_PATH" | grep -E "package:|versionCode|versionName"
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
