@@ -55,11 +55,14 @@ jobs:
             exit 1
           fi
 
-      - name: Restore debug keystore
-        if: ${{ secrets.DEBUG_KEYSTORE != '' }}
+      - name: Restore debug keystore (when provided)
         env:
           DEBUG_KEYSTORE: ${{ secrets.DEBUG_KEYSTORE }}
         run: |
+          if [[ -z "$DEBUG_KEYSTORE" ]]; then
+            echo "DEBUG_KEYSTORE not set; using runner default debug keystore."
+            exit 0
+          fi
           mkdir -p ~/.android
           echo "$DEBUG_KEYSTORE" | base64 -d > ~/.android/debug.keystore
 
