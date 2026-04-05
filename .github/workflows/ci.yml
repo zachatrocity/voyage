@@ -65,6 +65,7 @@ jobs:
           fi
           mkdir -p ~/.android
           echo "$DEBUG_KEYSTORE" | base64 -d > ~/.android/debug.keystore
+          sha256sum ~/.android/debug.keystore
 
       - name: Build debug APK (arm64)
         run: dx build --platform android --target aarch64-linux-android
@@ -86,11 +87,11 @@ jobs:
           text = text.replace("versionCode = 1", f"versionCode = {os.environ['VOYAGE_VERSION_CODE']}")
           text = text.replace('versionName = "1.0"', f'versionName = "{os.environ["VOYAGE_VERSION_NAME"]}"')
 
-          if 'create("debug")' not in text:
+          if 'getByName("debug") {' in text and 'storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")' not in text:
               marker = "    buildTypes {"
               signing_block = (
                   "    signingConfigs {\n"
-                  "        create(\"debug\") {\n"
+                  "        getByName(\"debug\") {\n"
                   "            storeFile = file(System.getProperty(\"user.home\") + \"/.android/debug.keystore\")\n"
                   "            storePassword = \"android\"\n"
                   "            keyAlias = \"androiddebugkey\"\n"
@@ -99,11 +100,6 @@ jobs:
                   "    }\n"
               )
               text = text.replace(marker, signing_block + marker)
-
-          text = text.replace(
-              "getByName(\"debug\") {",
-              "getByName(\"debug\") {\n            signingConfig = signingConfigs.getByName(\"debug\")",
-          )
 
           gradle.write_text(text)
           print(f"Patched {gradle}")
