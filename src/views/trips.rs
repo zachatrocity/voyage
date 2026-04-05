@@ -15,6 +15,7 @@ fn build_trip_deep_link(origin: &str, trip_id: &str) -> String {
 pub fn Trips() -> Element {
     let navigator = use_navigator();
     let mut refresh_nonce = use_signal(|| 0u64);
+    let mut delete_in_flight = use_signal(|| Option::<String>::None);
 
     let trips_resource = use_resource(move || {
         let _nonce = refresh_nonce();
@@ -148,6 +149,7 @@ pub fn Trips() -> Element {
                                     },
                                     "Open"
                                 }
+
                                 button {
                                     class: "text-xs px-3 py-1 rounded-full border border-border text-foreground",
                                     onclick: {
@@ -187,15 +189,24 @@ pub fn Trips() -> Element {
                                     },
                                     "Share"
                                 }
+
                                 button {
                                     class: "text-xs px-3 py-1 rounded-full border border-red-300 text-red-600",
+                                    disabled: delete_in_flight().as_ref() == Some(&trip.id),
                                     onclick: {
                                         let trip = trip.clone();
+                                        let selected_trip = SELECTED_TRIP.read().clone();
                                         move |_| {
                                             let trip_for_delete = trip.clone();
+                                            let selected_trip_for_delete = selected_trip.clone();
+                                            if delete_in_flight().as_ref() == Some(&trip_for_delete.id) {
+                                                return;
+                                            }
+
+                                            delete_in_flight.set(Some(trip_for_delete.id.clone()));
                                             spawn(async move {
                                                 let confirm_text = format!(
-                                                    "Delete trip '{}'? This cannot be undone.",
+                                                    "Delete trip '{}' ? This cannot be undone.",
                                                     trip_for_delete.name
                                                 );
                                                 let confirm_js = serde_json::to_string(&confirm_text)
@@ -210,25 +221,35 @@ pub fn Trips() -> Element {
                                                     == "true";
 
                                                 if !confirmed {
+                                                    delete_in_flight.set(None);
                                                     return;
                                                 }
 
                                                 match api::delete_trip(&trip_for_delete.id).await {
                                                     Ok(_) => {
-                                                        if SELECTED_TRIP.read().as_ref() == Some(&trip_for_delete.id) {
+                                                        if selected_trip_for_delete.as_ref() == Some(&trip_for_delete.id) {
                                                             *SELECTED_TRIP.write() = None;
                                                         }
                                                         refresh_nonce += 1;
                                                         notify_success("Trip deleted");
                                                     }
+                                                    Err(ApiError::Server { status: 404, .. }) => {
+                                                        notify_error("Delete is not available on this backend yet");
+                                                    }
                                                     Err(err) => {
                                                         notify_error(format!("Delete failed: {err}"));
                                                     }
                                                 }
+
+                                                delete_in_flight.set(None);
                                             });
                                         }
                                     },
-                                    "Delete"
+                                    if delete_in_flight().as_ref() == Some(&trip.id) {
+                                        "Deleting..."
+                                    } else {
+                                        "Delete"
+                                    }
                                 }
                             }
                         }
