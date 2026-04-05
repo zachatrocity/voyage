@@ -65,6 +65,27 @@ pub fn EmailDetail() -> Element {
         });
     };
 
+    let on_new_trip = move |_| {
+        let trip_name = format!("New Trip {}", TRIPS.read().len() + 1);
+
+        spawn(async move {
+            match api::create_trip(&trip_name, "Dates TBD").await {
+                Ok(created) => {
+                    TRIPS.write().push(crate::types::Trip {
+                        id: created.id.clone(),
+                        name: created.name.clone(),
+                        date_range: created.date_range.clone(),
+                        email_count: created.email_count,
+                        confirmed_count: created.confirmed_count,
+                    });
+                    selected_trip_id.set(Some(created.id));
+                    notify_success("Trip created");
+                }
+                Err(err) => notify_error(format!("Failed to create trip: {err}")),
+            }
+        });
+    };
+
     let navigator = use_navigator();
 
     rsx! {
@@ -121,7 +142,9 @@ pub fn EmailDetail() -> Element {
                         }
                     }
                     // New trip button
-                    button { class: "border border-dashed border-cta text-cta rounded-full px-3 py-1.5 text-sm",
+                    button {
+                        class: "border border-dashed border-cta text-cta rounded-full px-3 py-1.5 text-sm",
+                        onclick: on_new_trip,
                         "+ New Trip"
                     }
                 }

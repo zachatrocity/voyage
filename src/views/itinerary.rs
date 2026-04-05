@@ -5,6 +5,7 @@ use dioxus_free_icons::Icon;
 use crate::api::{self, ApiError};
 use crate::components::hero_header::HeroHeader;
 use crate::components::timeline_item::TimelineItem;
+use crate::notification::{notify_error, notify_success};
 use crate::types::{Category, ItineraryItem, ItineraryStatus, Trip};
 use crate::SELECTED_TRIP;
 
@@ -49,7 +50,12 @@ fn map_trip_email_to_timeline(trip_id: &str, e: &api::TripEmailItem) -> Itinerar
 
 #[component]
 pub fn Itinerary() -> Element {
-    let trips_resource = use_resource(|| async { api::list_trips().await });
+    let mut refresh_nonce = use_signal(|| 0u64);
+
+    let trips_resource = use_resource(move || {
+        let _nonce = refresh_nonce();
+        async move { api::list_trips().await }
+    });
 
     let selected_trip_id = use_memo(move || {
         let selected = SELECTED_TRIP.read().clone();
@@ -92,6 +98,7 @@ pub fn Itinerary() -> Element {
 
     let trip_emails_resource = use_resource(move || {
         let trip_id = selected_trip_id();
+        let _nonce = refresh_nonce();
         async move {
             match trip_id {
                 Some(id) => api::get_trip_emails(&id).await.map(|resp| resp.emails),
@@ -128,6 +135,24 @@ pub fn Itinerary() -> Element {
         }),
         _ => None,
     });
+
+    let on_add_trip = move |_| {
+        let next_name = match &*trips_resource.read_unchecked() {
+            Some(Ok(resp)) => format!("New Trip {}", resp.trips.len() + 1),
+            _ => "New Trip".to_string(),
+        };
+
+        spawn(async move {
+            match api::create_trip(&next_name, "Dates TBD").await {
+                Ok(new_trip) => {
+                    *SELECTED_TRIP.write() = Some(new_trip.id.clone());
+                    refresh_nonce += 1;
+                    notify_success("Trip created");
+                }
+                Err(err) => notify_error(format!("Failed to create trip: {err}")),
+            }
+        });
+    };
 
     rsx! {
         div { class: "flex flex-col h-full bg-background",
@@ -173,12 +198,6 @@ pub fn Itinerary() -> Element {
                     }
                 }
 
-                // FAB
-                div { class: "fixed bottom-20 right-4",
-                    button { class: "w-14 h-14 rounded-full bg-cta shadow-lg flex items-center justify-center",
-                        Icon { icon: LdPlus, width: 24, height: 24, class: "text-white" }
-                    }
-                }
             } else if trips_resource.read_unchecked().is_none() {
                 div { class: "mx-4 mt-4 rounded-xl border border-border bg-card p-4 animate-pulse",
                     div { class: "h-5 w-1/2 bg-border rounded mb-3" }
@@ -188,6 +207,15 @@ pub fn Itinerary() -> Element {
                 div { class: "flex flex-col items-center justify-center py-12 text-muted",
                     span { class: "text-4xl mb-2", "🗺️" }
                     span { class: "text-sm", "No trips found yet" }
+                }
+            }
+
+            // FAB
+            div { class: "fixed bottom-20 right-4",
+                button {
+                    class: "w-14 h-14 rounded-full bg-cta shadow-lg flex items-center justify-center",
+                    onclick: on_add_trip,
+                    Icon { icon: LdPlus, width: 24, height: 24, class: "text-white" }
                 }
             }
         }
