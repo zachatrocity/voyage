@@ -26,6 +26,10 @@ dev:
     # Kill Tailwind watcher when Dioxus server stops
     kill $TAILWIND_PID
 
+# POC: Generate Rust API types using pure Rust generator
+generate-api-types-rust-poc:
+    cargo run --bin api_typegen_poc -- ../voyage-backend/docs/swagger.json src/generated/api_types_rust_poc.rs
+
 # Build for production
 build:
     just build-tailwind
