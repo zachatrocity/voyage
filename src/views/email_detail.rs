@@ -68,7 +68,7 @@ pub fn EmailDetail() -> Element {
     let navigator = use_navigator();
 
     rsx! {
-        div { class: "flex flex-col h-full bg-background",
+        div { class: "flex flex-col h-screen bg-background",
             // Header
             div { class: "bg-card border-b border-border px-4 py-3 flex items-center gap-3",
                 button {
@@ -85,26 +85,25 @@ pub fn EmailDetail() -> Element {
                 Icon { icon: LdShare2, width: 20, height: 20, class: "text-muted" }
             }
 
-            match &*email_resource.read_unchecked() {
-                None => rsx! {
-                    div { class: "mx-4 mt-4 rounded-xl border border-border bg-card p-4 animate-pulse",
-                        div { class: "h-4 w-2/3 bg-border rounded mb-3" }
-                        div { class: "h-3 w-1/2 bg-border rounded mb-2" }
-                        div { class: "h-3 w-full bg-border rounded" }
-                    }
-                },
-                Some(Err(err)) => rsx! {
-                    div { class: "mx-4 mt-4 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700",
-                        "{err}"
-                    }
-                },
-                Some(Ok(email)) => rsx! {
-                    EmailDetailCard { email: email.clone() }
-                },
+            div { class: "flex-1 overflow-y-auto pb-56",
+                match &*email_resource.read_unchecked() {
+                    None => rsx! {
+                        div { class: "mx-4 mt-4 rounded-xl border border-border bg-card p-4 animate-pulse",
+                            div { class: "h-4 w-2/3 bg-border rounded mb-3" }
+                            div { class: "h-3 w-1/2 bg-border rounded mb-2" }
+                            div { class: "h-3 w-full bg-border rounded" }
+                        }
+                    },
+                    Some(Err(err)) => rsx! {
+                        div { class: "mx-4 mt-4 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700",
+                            "{err}"
+                        }
+                    },
+                    Some(Ok(email)) => rsx! {
+                        EmailDetailCard { email: email.clone() }
+                    },
+                }
             }
-
-            // Spacer to push bottom sheet content area
-            div { class: "flex-1" }
 
             // Bottom sheet: tag action
             BottomSheet {
