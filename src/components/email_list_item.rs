@@ -17,8 +17,23 @@ fn category_emoji(cat: &Category) -> &'static str {
 #[component]
 pub fn EmailListItem(email: Email, on_click: EventHandler<String>) -> Element {
     let id = email.id.clone();
+    let tags_line = if email.tags.is_empty() {
+        "No tags".to_string()
+    } else {
+        email
+            .tags
+            .iter()
+            .take(4)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(" · ")
+    };
     let trip_label = email.trip_id.as_ref().and_then(|tid| {
-        TRIPS.read().iter().find(|t| &t.id == tid).map(|t| t.name.clone())
+        TRIPS
+            .read()
+            .iter()
+            .find(|t| &t.id == tid)
+            .map(|t| t.name.clone())
     });
 
     rsx! {
@@ -31,10 +46,13 @@ pub fn EmailListItem(email: Email, on_click: EventHandler<String>) -> Element {
                 "{category_emoji(&email.category)}"
             }
 
-            // Middle: subject + sender/date
+            // Middle: subject + tags + sender/date
             div { class: "flex-1 min-w-0",
                 div { class: "text-sm font-semibold text-foreground truncate",
                     "{email.subject}"
+                }
+                div { class: "text-xs text-muted mt-0.5 truncate",
+                    "{tags_line}"
                 }
                 div { class: "flex justify-between items-center mt-0.5",
                     span { class: "text-xs text-muted truncate",

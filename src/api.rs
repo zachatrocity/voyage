@@ -42,6 +42,7 @@ pub struct EmailResult {
     pub date: String,
     pub body_preview: String,
     pub category: Category,
+    pub tags: Vec<String>,
     pub trip_id: Option<String>,
 }
 
@@ -142,6 +143,7 @@ fn map_email(raw: gen::EmailResult) -> EmailResult {
         date: raw.date.unwrap_or_default(),
         body_preview: raw.body_preview.unwrap_or_default(),
         category: parse_category(raw.category),
+        tags: raw.tags.unwrap_or_default(),
         trip_id: raw.trip_id,
     }
 }
