@@ -273,6 +273,23 @@ pub async fn create_trip(name: &str, date_range: &str) -> Result<TripResponse, A
     Ok(map_trip(raw))
 }
 
+pub async fn delete_trip(trip_id: &str) -> Result<(), ApiError> {
+    let (client, base) = client()?;
+    let resp = client
+        .delete(format!("{base}/trips/{trip_id}"))
+        .send()
+        .await
+        .map_err(|e| ApiError::Network(e.to_string()))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status().as_u16();
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ApiError::Server { status, message });
+    }
+
+    Ok(())
+}
+
 pub async fn get_trip_emails(trip_id: &str) -> Result<TripEmailsResponse, ApiError> {
     let (client, base) = client()?;
     let resp = client

@@ -7,6 +7,13 @@ use crate::notification::{notify_error, notify_success};
 use crate::types::Trip;
 use crate::{Route, SELECTED_TRIP, TRIPS};
 
+fn share_trip_text(trip: &Trip) -> String {
+    format!(
+        "✈️ {}\n{}\n{} tagged emails · {} confirmed",
+        trip.name, trip.date_range, trip.email_count, trip.confirmed_count
+    )
+}
+
 #[component]
 pub fn Trips() -> Element {
     let navigator = use_navigator();
@@ -107,24 +114,124 @@ pub fn Trips() -> Element {
                     }
                 } else {
                     for trip in trips().iter() {
-                        button {
+                        div {
                             key: "{trip.id}",
-                            class: "w-full text-left rounded-xl bg-card shadow-sm p-4 mb-3",
-                            onclick: {
-                                let trip_id = trip.id.clone();
-                                move |_| {
-                                    *SELECTED_TRIP.write() = Some(trip_id.clone());
-                                    navigator.push(Route::Itinerary {});
+                            class: "rounded-xl bg-card shadow-sm p-4 mb-3",
+
+                            button {
+                                class: "w-full text-left",
+                                onclick: {
+                                    let trip_id = trip.id.clone();
+                                    move |_| {
+                                        *SELECTED_TRIP.write() = Some(trip_id.clone());
+                                        navigator.push(Route::Itinerary {});
+                                    }
+                                },
+                                div { class: "font-semibold text-foreground", "{trip.name}" }
+                                div { class: "text-sm text-muted", "{trip.date_range}" }
+                                div { class: "flex gap-2 mt-2",
+                                    span { class: "text-xs px-2 py-0.5 rounded-full border border-primary text-primary",
+                                        "{trip.email_count} emails"
+                                    }
+                                    span { class: "text-xs px-2 py-0.5 rounded-full border border-primary text-primary",
+                                        "{trip.confirmed_count} confirmed"
+                                    }
                                 }
-                            },
-                            div { class: "font-semibold text-foreground", "{trip.name}" }
-                            div { class: "text-sm text-muted", "{trip.date_range}" }
-                            div { class: "flex gap-2 mt-2",
-                                span { class: "text-xs px-2 py-0.5 rounded-full border border-primary text-primary",
-                                    "{trip.email_count} emails"
+                            }
+
+                            div { class: "mt-3 pt-3 border-t border-border flex gap-2",
+                                button {
+                                    class: "text-xs px-3 py-1 rounded-full border border-border text-foreground",
+                                    onclick: {
+                                        let trip_id = trip.id.clone();
+                                        move |_| {
+                                            *SELECTED_TRIP.write() = Some(trip_id.clone());
+                                            navigator.push(Route::Itinerary {});
+                                        }
+                                    },
+                                    "Open"
                                 }
-                                span { class: "text-xs px-2 py-0.5 rounded-full border border-primary text-primary",
-                                    "{trip.confirmed_count} confirmed"
+                                button {
+                                    class: "text-xs px-3 py-1 rounded-full border border-border text-foreground",
+                                    onclick: {
+                                        let trip = trip.clone();
+                                        move |_| {
+                                            let trip_for_share = trip.clone();
+                                            spawn(async move {
+                                                let text = share_trip_text(&trip_for_share);
+                                                let text_js = serde_json::to_string(&text).unwrap_or_else(|_| "\"Trip\"".to_string());
+                                                let mut eval = document::eval(&format!(
+                                                    r#"
+                                                    const text = {text_js};
+                                                    try {{
+                                                        if (navigator.share) {{
+                                                            await navigator.share({{ title: "Voyage Trip", text }});
+                                                            dioxus.send("shared");
+                                                        }} else if (navigator.clipboard?.writeText) {{
+                                                            await navigator.clipboard.writeText(text);
+                                                            dioxus.send("copied");
+                                                        }} else {{
+                                                            dioxus.send("unsupported");
+                                                        }}
+                                                    }} catch (e) {{
+                                                        dioxus.send("cancelled");
+                                                    }}
+                                                    "#
+                                                ));
+
+                                                match eval.recv::<String>().await.unwrap_or_default().as_str() {
+                                                    "shared" => notify_success("Trip shared"),
+                                                    "copied" => notify_success("Trip copied to clipboard"),
+                                                    "unsupported" => notify_error("Share is not supported on this device"),
+                                                    _ => {}
+                                                }
+                                            });
+                                        }
+                                    },
+                                    "Share"
+                                }
+                                button {
+                                    class: "text-xs px-3 py-1 rounded-full border border-red-300 text-red-600",
+                                    onclick: {
+                                        let trip = trip.clone();
+                                        move |_| {
+                                            let trip_for_delete = trip.clone();
+                                            spawn(async move {
+                                                let confirm_text = format!(
+                                                    "Delete trip '{}'? This cannot be undone.",
+                                                    trip_for_delete.name
+                                                );
+                                                let confirm_js = serde_json::to_string(&confirm_text)
+                                                    .unwrap_or_else(|_| "\"Delete this trip?\"".to_string());
+                                                let mut eval = document::eval(&format!(
+                                                    "dioxus.send(String(window.confirm({confirm_js})));"
+                                                ));
+                                                let confirmed = eval
+                                                    .recv::<String>()
+                                                    .await
+                                                    .unwrap_or_default()
+                                                    == "true";
+
+                                                if !confirmed {
+                                                    return;
+                                                }
+
+                                                match api::delete_trip(&trip_for_delete.id).await {
+                                                    Ok(_) => {
+                                                        if SELECTED_TRIP.read().as_ref() == Some(&trip_for_delete.id) {
+                                                            *SELECTED_TRIP.write() = None;
+                                                        }
+                                                        refresh_nonce += 1;
+                                                        notify_success("Trip deleted");
+                                                    }
+                                                    Err(err) => {
+                                                        notify_error(format!("Delete failed: {err}"));
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    },
+                                    "Delete"
                                 }
                             }
                         }
@@ -140,5 +247,27 @@ pub fn Trips() -> Element {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn share_trip_text_includes_core_fields() {
+        let trip = Trip {
+            id: "t1".into(),
+            name: "Disney 2026".into(),
+            date_range: "Jun 14 - Jun 18, 2026".into(),
+            email_count: 5,
+            confirmed_count: 3,
+        };
+
+        let text = share_trip_text(&trip);
+        assert!(text.contains("Disney 2026"));
+        assert!(text.contains("Jun 14 - Jun 18, 2026"));
+        assert!(text.contains("5 tagged emails"));
+        assert!(text.contains("3 confirmed"));
     }
 }
