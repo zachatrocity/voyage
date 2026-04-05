@@ -66,30 +66,53 @@ jobs:
           mkdir -p ~/.android
           echo "$DEBUG_KEYSTORE" | base64 -d > ~/.android/debug.keystore
 
-      - name: Stamp Android versionCode/versionName for upgrade-friendly CI installs
+      - name: Build debug APK (arm64)
+        run: dx build --platform android --target aarch64-linux-android
+
+      - name: Patch generated Android project (version + debug signing)
         env:
           VOYAGE_VERSION_CODE: ${{ github.run_number }}
           VOYAGE_VERSION_NAME: ci-${{ github.run_number }}-${{ github.sha }}
         run: |
           python3 - <<'PY'
           import os
-          import xml.etree.ElementTree as ET
+          from pathlib import Path
 
-          path = "android/AndroidManifest.xml"
-          ns_android = "http://schemas.android.com/apk/res/android"
-          ET.register_namespace("android", ns_android)
-          ET.register_namespace("tools", "http://schemas.android.com/tools")
+          gradle = Path("target/dx/voyage/debug/android/app/app/build.gradle.kts")
+          if not gradle.exists():
+              raise SystemExit(f"Generated gradle file not found: {gradle}")
 
-          tree = ET.parse(path)
-          root = tree.getroot()
-          root.set(f"{{{ns_android}}}versionCode", os.environ["VOYAGE_VERSION_CODE"])
-          root.set(f"{{{ns_android}}}versionName", os.environ["VOYAGE_VERSION_NAME"])
-          tree.write(path, encoding="utf-8", xml_declaration=True)
-          print(f"Stamped {path} with versionCode={os.environ['VOYAGE_VERSION_CODE']}")
+          text = gradle.read_text()
+          text = text.replace("versionCode = 1", f"versionCode = {os.environ['VOYAGE_VERSION_CODE']}")
+          text = text.replace('versionName = "1.0"', f'versionName = "{os.environ["VOYAGE_VERSION_NAME"]}"')
+
+          if 'create("debug")' not in text:
+              marker = "    buildTypes {"
+              signing_block = """
+    signingConfigs {
+        create("debug") {
+            storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+"""
+              text = text.replace(marker, signing_block + marker)
+
+          text = text.replace(
+              "getByName(\"debug\") {",
+              "getByName(\"debug\") {\n            signingConfig = signingConfigs.getByName(\"debug\")",
+          )
+
+          gradle.write_text(text)
+          print(f"Patched {gradle}")
           PY
 
-      - name: Build debug APK (arm64)
-        run: dx build --platform android --target aarch64-linux-android
+      - name: Rebuild debug APK with patched metadata/signing
+        run: |
+          cd target/dx/voyage/debug/android/app
+          ./gradlew --no-daemon :app:assembleDebug
 
       - name: Locate APK
         shell: bash
@@ -107,11 +130,10 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          apksigner verify --print-certs "$APK_PATH" || true
-          BUILD_TOOLS_DIR=$(dirname "$(command -v apksigner)")
-          if [[ -x "$BUILD_TOOLS_DIR/aapt" ]]; then
-            "$BUILD_TOOLS_DIR/aapt" dump badging "$APK_PATH" | grep -E "package:|versionCode|versionName"
-          fi
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n1)
+          AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -n1)
+          "$APKSIGNER" verify --print-certs "$APK_PATH"
+          "$AAPT" dump badging "$APK_PATH" | grep -E "package:|versionCode|versionName"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
