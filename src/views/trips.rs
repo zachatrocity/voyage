@@ -7,11 +7,8 @@ use crate::notification::{notify_error, notify_success};
 use crate::types::Trip;
 use crate::{Route, SELECTED_TRIP, TRIPS};
 
-fn share_trip_text(trip: &Trip) -> String {
-    format!(
-        "✈️ {}\n{}\n{} tagged emails · {} confirmed",
-        trip.name, trip.date_range, trip.email_count, trip.confirmed_count
-    )
+fn build_trip_deep_link(origin: &str, trip_id: &str) -> String {
+    format!("{}/itinerary?trip_id={}", origin.trim_end_matches('/'), trip_id)
 }
 
 #[component]
@@ -154,36 +151,36 @@ pub fn Trips() -> Element {
                                 button {
                                     class: "text-xs px-3 py-1 rounded-full border border-border text-foreground",
                                     onclick: {
-                                        let trip = trip.clone();
+                                        let trip_id = trip.id.clone();
                                         move |_| {
-                                            let trip_for_share = trip.clone();
+                                            let trip_id_for_share = trip_id.clone();
                                             spawn(async move {
-                                                let text = share_trip_text(&trip_for_share);
-                                                let text_js = serde_json::to_string(&text).unwrap_or_else(|_| "\"Trip\"".to_string());
+                                                let mut origin_eval = document::eval("dioxus.send(window.location.origin || '');");
+                                                let origin = origin_eval.recv::<String>().await.unwrap_or_default();
+                                                let deep_link = build_trip_deep_link(&origin, &trip_id_for_share);
+                                                let link_js = serde_json::to_string(&deep_link)
+                                                    .unwrap_or_else(|_| "\"\"".to_string());
+
                                                 let mut eval = document::eval(&format!(
                                                     r#"
-                                                    const text = {text_js};
+                                                    const link = {link_js};
                                                     try {{
-                                                        if (navigator.share) {{
-                                                            await navigator.share({{ title: "Voyage Trip", text }});
-                                                            dioxus.send("shared");
-                                                        }} else if (navigator.clipboard?.writeText) {{
-                                                            await navigator.clipboard.writeText(text);
+                                                        if (navigator.clipboard?.writeText) {{
+                                                            await navigator.clipboard.writeText(link);
                                                             dioxus.send("copied");
                                                         }} else {{
                                                             dioxus.send("unsupported");
                                                         }}
                                                     }} catch (e) {{
-                                                        dioxus.send("cancelled");
+                                                        dioxus.send("error");
                                                     }}
                                                     "#
                                                 ));
 
                                                 match eval.recv::<String>().await.unwrap_or_default().as_str() {
-                                                    "shared" => notify_success("Trip shared"),
-                                                    "copied" => notify_success("Trip copied to clipboard"),
-                                                    "unsupported" => notify_error("Share is not supported on this device"),
-                                                    _ => {}
+                                                    "copied" => notify_success("Trip deep link copied"),
+                                                    "unsupported" => notify_error("Clipboard is not supported on this device"),
+                                                    _ => notify_error("Failed to copy deep link"),
                                                 }
                                             });
                                         }
@@ -255,19 +252,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn share_trip_text_includes_core_fields() {
-        let trip = Trip {
-            id: "t1".into(),
-            name: "Disney 2026".into(),
-            date_range: "Jun 14 - Jun 18, 2026".into(),
-            email_count: 5,
-            confirmed_count: 3,
-        };
-
-        let text = share_trip_text(&trip);
-        assert!(text.contains("Disney 2026"));
-        assert!(text.contains("Jun 14 - Jun 18, 2026"));
-        assert!(text.contains("5 tagged emails"));
-        assert!(text.contains("3 confirmed"));
+    fn deep_link_format_is_expected() {
+        let link = build_trip_deep_link("https://voyage.local", "trip-123");
+        assert_eq!(link, "https://voyage.local/itinerary?trip_id=trip-123");
     }
 }
