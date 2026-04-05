@@ -88,16 +88,16 @@ jobs:
 
           if 'create("debug")' not in text:
               marker = "    buildTypes {"
-              signing_block = """
-    signingConfigs {
-        create("debug") {
-            storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
-        }
-    }
-"""
+              signing_block = (
+                  "    signingConfigs {\n"
+                  "        create(\"debug\") {\n"
+                  "            storeFile = file(System.getProperty(\"user.home\") + \"/.android/debug.keystore\")\n"
+                  "            storePassword = \"android\"\n"
+                  "            keyAlias = \"androiddebugkey\"\n"
+                  "            keyPassword = \"android\"\n"
+                  "        }\n"
+                  "    }\n"
+              )
               text = text.replace(marker, signing_block + marker)
 
           text = text.replace(
