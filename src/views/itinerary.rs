@@ -2,52 +2,192 @@ use dioxus::prelude::*;
 use dioxus_free_icons::icons::ld_icons::LdPlus;
 use dioxus_free_icons::Icon;
 
+use crate::api::{self, ApiError};
 use crate::components::hero_header::HeroHeader;
 use crate::components::timeline_item::TimelineItem;
-use crate::types::Trip;
-use crate::{ITINERARY, SELECTED_TRIP, TRIPS};
+use crate::types::{Category, ItineraryItem, ItineraryStatus, Trip};
+use crate::SELECTED_TRIP;
+
+fn infer_category(subject: &str, tags: &[String]) -> Category {
+    let s = subject.to_ascii_lowercase();
+    let has_tag = |needle: &str| tags.iter().any(|t| t.to_ascii_lowercase().contains(needle));
+
+    if s.contains("flight") || s.contains("airlines") || s.contains("ticket") || has_tag("flight") {
+        Category::Flight
+    } else if s.contains("hotel") || s.contains("reservation") || has_tag("hotel") {
+        Category::Hotel
+    } else if s.contains("rental") || s.contains("hertz") || s.contains("avis") || has_tag("car") {
+        Category::CarRental
+    } else if s.contains("cruise") || has_tag("cruise") {
+        Category::Cruise
+    } else if s.contains("park") || s.contains("activity") || has_tag("activity") {
+        Category::Activity
+    } else {
+        Category::Other
+    }
+}
+
+fn map_trip_email_to_timeline(trip_id: &str, e: &api::TripEmailItem) -> ItineraryItem {
+    let title = if e.subject.trim().is_empty() {
+        "Untitled email".to_string()
+    } else {
+        e.subject.clone()
+    };
+
+    ItineraryItem {
+        id: e.id.clone(),
+        trip_id: trip_id.to_string(),
+        email_id: e.id.clone(),
+        title,
+        detail: e.sender.clone(),
+        sub_detail: None,
+        date: e.date.clone(),
+        category: infer_category(&e.subject, &e.tags),
+        status: ItineraryStatus::Confirmed,
+    }
+}
 
 #[component]
 pub fn Itinerary() -> Element {
-    let trip: Memo<Trip> = use_memo(move || {
-        let trips = TRIPS.read();
-        let selected = SELECTED_TRIP.read();
-        selected
-            .as_ref()
-            .and_then(|id| trips.iter().find(|t| &t.id == id).cloned())
-            .unwrap_or_else(|| trips.first().cloned().unwrap())
+    let trips_resource = use_resource(|| async { api::list_trips().await });
+
+    let selected_trip_id = use_memo(move || {
+        let selected = SELECTED_TRIP.read().clone();
+        match &*trips_resource.read_unchecked() {
+            Some(Ok(resp)) => {
+                if let Some(id) = selected {
+                    if resp.trips.iter().any(|t| t.id == id) {
+                        return Some(id);
+                    }
+                }
+                resp.trips.first().map(|t| t.id.clone())
+            }
+            _ => selected,
+        }
+    });
+
+    use_effect(move || {
+        if let Some(id) = selected_trip_id() {
+            if SELECTED_TRIP.read().as_ref() != Some(&id) {
+                *SELECTED_TRIP.write() = Some(id);
+            }
+        }
+    });
+
+    let trip: Memo<Option<Trip>> = use_memo(move || match &*trips_resource.read_unchecked() {
+        Some(Ok(resp)) => {
+            let id = selected_trip_id();
+            id.and_then(|sid| resp.trips.iter().find(|t| t.id == sid).cloned())
+                .or_else(|| resp.trips.first().cloned())
+                .map(|t| Trip {
+                    id: t.id,
+                    name: t.name,
+                    date_range: t.date_range,
+                    email_count: t.email_count,
+                    confirmed_count: t.confirmed_count,
+                })
+        }
+        _ => None,
+    });
+
+    let trip_emails_resource = use_resource(move || {
+        let trip_id = selected_trip_id();
+        async move {
+            match trip_id {
+                Some(id) => api::get_trip_emails(&id).await.map(|resp| resp.emails),
+                None => Ok(vec![]),
+            }
+        }
     });
 
     let items = use_memo(move || {
-        let all = ITINERARY.read();
-        let t = trip();
-        let filtered: Vec<_> = all.iter().filter(|i| i.trip_id == t.id).cloned().collect();
-        filtered
+        let trip_id = selected_trip_id();
+        match (trip_id, &*trip_emails_resource.read_unchecked()) {
+            (Some(id), Some(Ok(emails))) => emails
+                .iter()
+                .map(|e| map_trip_email_to_timeline(&id, e))
+                .collect::<Vec<_>>(),
+            _ => Vec::new(),
+        }
+    });
+
+    let trip_error = use_memo(move || match &*trips_resource.read_unchecked() {
+        Some(Err(err)) => Some(match err {
+            ApiError::Network(msg) => format!("Network error: {msg}"),
+            ApiError::Decode(msg) => format!("Decode error: {msg}"),
+            ApiError::Server { status, message } => format!("Server error ({status}): {message}"),
+        }),
+        _ => None,
+    });
+
+    let timeline_error = use_memo(move || match &*trip_emails_resource.read_unchecked() {
+        Some(Err(err)) => Some(match err {
+            ApiError::Network(msg) => format!("Network error: {msg}"),
+            ApiError::Decode(msg) => format!("Decode error: {msg}"),
+            ApiError::Server { status, message } => format!("Server error ({status}): {message}"),
+        }),
+        _ => None,
     });
 
     rsx! {
         div { class: "flex flex-col h-full bg-background",
-            HeroHeader { trip: trip() }
-
-            div { class: "flex-1 overflow-y-auto px-4 pt-4 pb-24",
-                {
-                    let all_items = items();
-                    let mut prev_date = String::new();
-                    let rendered: Vec<_> = all_items.iter().map(|item| {
-                        let show_date = item.date != prev_date;
-                        prev_date = item.date.clone();
-                        rsx! {
-                            TimelineItem { key: "{item.id}", item: item.clone(), show_date: show_date }
-                        }
-                    }).collect();
-                    rsx! { {rendered.into_iter()} }
+            if let Some(err) = trip_error() {
+                div { class: "mx-4 mt-4 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700",
+                    "{err}"
                 }
-            }
+            } else if let Some(current_trip) = trip() {
+                HeroHeader { trip: current_trip }
 
-            // FAB
-            div { class: "fixed bottom-20 right-4",
-                button { class: "w-14 h-14 rounded-full bg-cta shadow-lg flex items-center justify-center",
-                    Icon { icon: LdPlus, width: 24, height: 24, class: "text-white" }
+                div { class: "flex-1 overflow-y-auto px-4 pt-4 pb-24",
+                    if trip_emails_resource.read_unchecked().is_none() {
+                        for i in 0..4 {
+                            div {
+                                key: "timeline-skeleton-{i}",
+                                class: "mb-3 rounded-xl border border-border bg-card p-4 animate-pulse",
+                                div { class: "h-4 w-2/3 bg-border rounded mb-2" }
+                                div { class: "h-3 w-1/2 bg-border rounded" }
+                            }
+                        }
+                    } else if let Some(err) = timeline_error() {
+                        div { class: "rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700",
+                            "{err}"
+                        }
+                    } else if items().is_empty() {
+                        div { class: "flex flex-col items-center justify-center py-12 text-muted",
+                            span { class: "text-4xl mb-2", "🧳" }
+                            span { class: "text-sm", "No tagged emails for this trip yet" }
+                        }
+                    } else {
+                        {
+                            let all_items = items();
+                            let mut prev_date = String::new();
+                            let rendered: Vec<_> = all_items.iter().map(|item| {
+                                let show_date = item.date != prev_date;
+                                prev_date = item.date.clone();
+                                rsx! {
+                                    TimelineItem { key: "{item.id}", item: item.clone(), show_date: show_date }
+                                }
+                            }).collect();
+                            rsx! { {rendered.into_iter()} }
+                        }
+                    }
+                }
+
+                // FAB
+                div { class: "fixed bottom-20 right-4",
+                    button { class: "w-14 h-14 rounded-full bg-cta shadow-lg flex items-center justify-center",
+                        Icon { icon: LdPlus, width: 24, height: 24, class: "text-white" }
+                    }
+                }
+            } else if trips_resource.read_unchecked().is_none() {
+                div { class: "mx-4 mt-4 rounded-xl border border-border bg-card p-4 animate-pulse",
+                    div { class: "h-5 w-1/2 bg-border rounded mb-3" }
+                    div { class: "h-4 w-2/3 bg-border rounded" }
+                }
+            } else {
+                div { class: "flex flex-col items-center justify-center py-12 text-muted",
+                    span { class: "text-4xl mb-2", "🗺️" }
+                    span { class: "text-sm", "No trips found yet" }
                 }
             }
         }
