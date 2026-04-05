@@ -39,7 +39,8 @@ pub fn Trips() -> Element {
 
     use_effect(move || {
         let latest = trips();
-        if *TRIPS.read() != latest {
+        let current = TRIPS.read().clone();
+        if current != latest {
             *TRIPS.write() = latest;
         }
     });
