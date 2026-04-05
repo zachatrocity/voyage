@@ -18,6 +18,7 @@ pub fn Navbar() -> Element {
     let active_tab = match route {
         Route::Home {} => "home",
         Route::EmailList {} => "emails",
+        Route::Trips {} => "trips",
         Route::Itinerary {} => "trips",
         Route::EmailDetail {} => "emails",
         Route::Settings {} => "settings",
