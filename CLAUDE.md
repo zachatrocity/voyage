@@ -207,11 +207,31 @@ rsx! {
 Backend runs at `http://localhost:8181` (or configured via env).
 
 ```
-GET /api/v1/search?q=<query>     — search emails
-GET /api/v1/email/:id            — get single email
-POST /api/v1/email/:id/tags/:tag — add tag to email
-GET /health                      — health check
+GET /api/v1/search?q=<query>      — search emails
+GET /api/v1/email/:id             — get single email
+POST /api/v1/email/:id/tags/:tag  — add tag to email
+POST /api/v1/email/:id/trip/:trip — associate email with trip
+GET /api/v1/trips                 — list trips
+POST /api/v1/trips                — create trip
+GET /api/v1/trips/:trip_id/emails — list trip emails
+GET /health                       — health check
 ```
+
+### Type generation workflow (important)
+
+Voyage now uses **generated transport types** from backend Swagger:
+- Generator: `scripts/generate_api_types.py`
+- Generated file: `src/generated/api_types.rs`
+- Mapping boundary: `src/api.rs`
+
+Rules:
+1. **Do not deserialize backend JSON directly into UI/domain structs.**
+2. Decode into `generated::api_types::*`, then map into app-facing structs in `src/api.rs`.
+3. If backend Swagger changes, run `just generate-api-types` and review mapping diffs.
+4. Use `just check-api-types` in CI/local checks to detect stale generated types.
+
+Notes:
+- Swagger has a couple of known quirks (`GET /trips` inline map shape, `POST /trips` missing explicit 200 schema), so `src/api.rs` includes documented assumptions.
 
 For async API calls in Dioxus, use `use_resource` (replaces `use_future`):
 

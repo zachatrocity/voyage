@@ -237,6 +237,8 @@ pub async fn list_trips() -> Result<TripsResponse, ApiError> {
         .await
         .map_err(|e| ApiError::Network(e.to_string()))?;
 
+    // Swagger currently models GET /trips as an inline object with
+    // additionalProperties: array<tripResponse> (not a named TripsResponse).
     let raw: std::collections::HashMap<String, Vec<gen::TripResponse>> =
         handle_response(resp).await?;
     let trips = raw
@@ -262,6 +264,8 @@ pub async fn create_trip(name: &str, date_range: &str) -> Result<TripResponse, A
         .await
         .map_err(|e| ApiError::Network(e.to_string()))?;
 
+    // Swagger currently omits a concrete 200 response schema for POST /trips.
+    // Backend returns a trip-like object; we decode as TripResponse by contract.
     let raw: gen::TripResponse = handle_response(resp).await?;
     Ok(map_trip(raw))
 }

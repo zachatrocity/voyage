@@ -1,4 +1,22 @@
 #!/usr/bin/env python3
+"""
+Generate Rust transport types from voyage-backend Swagger definitions.
+
+Current scope (intentional, minimal):
+- Reads only top-level `definitions` object schemas.
+- Supports primitive/object/array types and `$ref`.
+- Maps non-required fields to `Option<T>`.
+- Uses `serde_json::Value` for unsupported/anonymous object shapes.
+
+Known limitations:
+- Does not generate types from inline path response/request schemas.
+- Does not handle oneOf/anyOf/allOf/discriminator.
+- Does not infer Rust enums from Swagger enum metadata.
+- Nested anonymous objects are widened to `serde_json::Value`.
+
+When backend schema evolves, regenerate and review mappings in `src/api.rs`.
+"""
+
 import json
 import re
 from pathlib import Path
@@ -10,12 +28,10 @@ OUT = ROOT / "src" / "generated" / "api_types.rs"
 NAME_OVERRIDES = {
     "notmuch.EmailResult": "EmailResult",
     "handlers.tripResponse": "TripResponse",
-    "handlers.tripsResponse": "TripsResponse",
     "handlers.TripEmailItem": "TripEmailItem",
     "handlers.tripEmailsResponse": "TripEmailsResponse",
     "handlers.associateTripEmailResponse": "AssociateTripResponse",
     "handlers.createTripRequest": "CreateTripBody",
-    "handlers.searchResponse": "SearchResults",
 }
 
 

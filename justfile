@@ -30,6 +30,11 @@ dev:
 generate-api-types:
     ./scripts/generate_api_types.py
 
+# Verify generated API types are up-to-date with backend Swagger
+check-api-types:
+    ./scripts/generate_api_types.py
+    git diff --exit-code -- src/generated/api_types.rs
+
 # Build for production
 build:
     just build-tailwind
