@@ -21,17 +21,30 @@ pub fn Toast() -> Element {
 
     match notification {
         Some(notif) => {
-            let bg_class = match notif.kind {
-                NotificationKind::Error => "bg-cta",
-                NotificationKind::Success => "bg-green-600",
-                NotificationKind::Info => "bg-primary",
+            let toast_class = match notif.kind {
+                NotificationKind::Error => {
+                    "fixed bottom-20 left-4 right-4 z-50 bg-cta text-white rounded-xl shadow-lg px-4 py-3 flex flex-row items-center gap-3"
+                }
+                NotificationKind::Success => {
+                    "fixed bottom-20 left-4 right-4 z-50 bg-primary text-white rounded-xl shadow-lg px-4 py-3 flex flex-row items-center gap-3"
+                }
+                NotificationKind::Info => {
+                    "fixed bottom-20 left-4 right-4 z-50 bg-card text-foreground border border-border rounded-xl shadow-lg px-4 py-3 flex flex-row items-center gap-3"
+                }
+            };
+
+            let close_btn_class = match notif.kind {
+                NotificationKind::Info => {
+                    "text-foreground opacity-70 hover:opacity-100 font-bold text-lg leading-none"
+                }
+                _ => "text-white opacity-80 hover:opacity-100 font-bold text-lg leading-none",
             };
 
             rsx! {
-                div { class: "fixed bottom-20 left-4 right-4 z-50 {bg_class} text-white rounded-xl shadow-lg px-4 py-3 flex flex-row items-center gap-3",
+                div { class: "{toast_class}",
                     span { class: "flex-1 text-sm", "{notif.message}" }
                     button {
-                        class: "text-white opacity-80 hover:opacity-100 font-bold text-lg leading-none",
+                        class: "{close_btn_class}",
                         onclick: move |_| {
                             *NOTIFICATION.write() = None;
                             timer_running.set(false);
