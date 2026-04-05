@@ -6,6 +6,7 @@ use views::{EmailDetail, EmailList, Home, Itinerary, Navbar, Settings};
 pub mod api;
 mod components;
 pub mod config;
+pub mod generated;
 pub mod notification;
 mod types;
 mod views;

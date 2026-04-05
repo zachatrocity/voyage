@@ -26,6 +26,10 @@ dev:
     # Kill Tailwind watcher when Dioxus server stops
     kill $TAILWIND_PID
 
+# Generate Rust API types from backend Swagger spec
+generate-api-types:
+    ./scripts/generate_api_types.py
+
 # Build for production
 build:
     just build-tailwind
