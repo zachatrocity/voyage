@@ -2,37 +2,67 @@ use dioxus::prelude::*;
 use dioxus_free_icons::icons::ld_icons::{LdArrowLeft, LdShare2};
 use dioxus_free_icons::Icon;
 
+use crate::api::{self, ApiError};
 use crate::components::bottom_sheet::BottomSheet;
 use crate::components::email_detail_card::EmailDetailCard;
 use crate::components::trip_chip::TripChip;
-use crate::{EMAILS, SELECTED_EMAIL, TRIPS};
+use crate::notification::{notify_error, notify_success};
+use crate::types::Email;
+use crate::{SELECTED_EMAIL, TRIPS};
+
+fn to_ui_email(e: &api::EmailResult) -> Email {
+    Email {
+        id: e.id.clone(),
+        subject: e.subject.clone(),
+        sender: e.sender.clone(),
+        sender_email: e.sender_email.clone(),
+        date: e.date.clone(),
+        body_preview: e.body_preview.clone(),
+        category: e.category.clone(),
+        tags: e.tags.clone(),
+        trip_id: e.trip_id.clone(),
+    }
+}
 
 #[component]
 pub fn EmailDetail() -> Element {
-    let email = use_memo(move || {
-        let emails = EMAILS.read();
-        let selected_id = SELECTED_EMAIL.read();
-        selected_id
-            .as_ref()
-            .and_then(|id| emails.iter().find(|e| &e.id == id).cloned())
+    let selected_id = use_memo(move || SELECTED_EMAIL.read().clone());
+    let mut selected_trip_id = use_signal(|| Option::<String>::None);
+    let mut refresh_nonce = use_signal(|| 0u64);
+
+    let email_resource = use_resource(move || {
+        let email_id = selected_id();
+        let _nonce = refresh_nonce();
+        async move {
+            let id = email_id.ok_or_else(|| ApiError::Network("No email selected".to_string()))?;
+            let email = api::get_email(&id).await?;
+            Ok::<Email, ApiError>(to_ui_email(&email))
+        }
     });
 
-    let mut selected_trip_id = use_signal(|| Option::<String>::None);
-
     let on_confirm = move |_| {
-        if let Some(trip_id) = selected_trip_id() {
-            let mut emails = EMAILS.write();
-            if let Some(selected_id) = SELECTED_EMAIL.read().as_ref() {
-                if let Some(email) = emails.iter_mut().find(|e| &e.id == selected_id) {
-                    email.trip_id = Some(trip_id.clone());
+        let trip_id = selected_trip_id();
+        let email_id = selected_id();
+
+        spawn(async move {
+            let Some(trip_id) = trip_id else {
+                notify_error("Choose a trip first");
+                return;
+            };
+            let Some(email_id) = email_id else {
+                notify_error("No email selected");
+                return;
+            };
+
+            let tag = format!("trip:{trip_id}");
+            match api::tag_email(&email_id, &tag).await {
+                Ok(_) => {
+                    notify_success("Tagged email successfully");
+                    refresh_nonce += 1;
                 }
+                Err(err) => notify_error(format!("Tagging failed: {err}")),
             }
-            // Update trip email_count
-            let mut trips = TRIPS.write();
-            if let Some(trip) = trips.iter_mut().find(|t| t.id == trip_id) {
-                trip.email_count += 1;
-            }
-        }
+        });
     };
 
     let navigator = use_navigator();
@@ -47,14 +77,30 @@ pub fn EmailDetail() -> Element {
                     Icon { icon: LdArrowLeft, width: 20, height: 20 }
                 }
                 span { class: "flex-1 text-sm font-medium text-foreground truncate",
-                    {email().as_ref().map(|e| e.subject.clone()).unwrap_or_default()}
+                    match &*email_resource.read_unchecked() {
+                        Some(Ok(email)) => email.subject.clone(),
+                        _ => "Email detail".to_string(),
+                    }
                 }
                 Icon { icon: LdShare2, width: 20, height: 20, class: "text-muted" }
             }
 
-            // Email detail card
-            if let Some(ref e) = email() {
-                EmailDetailCard { email: e.clone() }
+            match &*email_resource.read_unchecked() {
+                None => rsx! {
+                    div { class: "mx-4 mt-4 rounded-xl border border-border bg-card p-4 animate-pulse",
+                        div { class: "h-4 w-2/3 bg-border rounded mb-3" }
+                        div { class: "h-3 w-1/2 bg-border rounded mb-2" }
+                        div { class: "h-3 w-full bg-border rounded" }
+                    }
+                },
+                Some(Err(err)) => rsx! {
+                    div { class: "mx-4 mt-4 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700",
+                        "{err}"
+                    }
+                },
+                Some(Ok(email)) => rsx! {
+                    EmailDetailCard { email: email.clone() }
+                },
             }
 
             // Spacer to push bottom sheet content area
