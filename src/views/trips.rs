@@ -38,8 +38,9 @@ pub fn Trips() -> Element {
     });
 
     use_effect(move || {
-        if !trips().is_empty() {
-            *TRIPS.write() = trips();
+        let latest = trips();
+        if *TRIPS.read() != latest {
+            *TRIPS.write() = latest;
         }
     });
 
