@@ -1,7 +1,6 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::icons::ld_icons::LdArrowLeft;
 use dioxus_free_icons::Icon;
-use gloo_timers::future::TimeoutFuture;
 
 use crate::api::{self, ApiError};
 use crate::components::discovery_banner::DiscoveryBanner;
@@ -42,11 +41,7 @@ pub fn EmailList() -> Element {
 
     let emails_resource = use_resource(move || {
         let query = search();
-        async move {
-            // debounce search input
-            TimeoutFuture::new(300).await;
-            api::search_emails(&query, Some(50)).await
-        }
+        async move { api::search_emails(&query, Some(50)).await }
     });
 
     let discovery_resource = use_resource(|| async move {
