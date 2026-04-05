@@ -8,6 +8,7 @@ use crate::components::email_list_item::EmailListItem;
 use crate::components::filter_chips::FilterChips;
 use crate::components::search_bar::SearchBar;
 use crate::types::{Category, Email};
+use crate::Route;
 use crate::SELECTED_EMAIL;
 
 fn filter_matches(category: &Category, active_filter: &str) -> bool {
@@ -37,6 +38,7 @@ fn to_ui_email(e: &api::EmailResult) -> Email {
 
 #[component]
 pub fn EmailList() -> Element {
+    let navigator = use_navigator();
     let mut search = use_signal(String::new);
     let mut active_filter = use_signal(|| "All".to_string());
 
@@ -129,6 +131,7 @@ pub fn EmailList() -> Element {
                             email: email.clone(),
                             on_click: move |id: String| {
                                 *SELECTED_EMAIL.write() = Some(id);
+                                navigator.push(Route::EmailDetail {});
                             },
                         }
                     }

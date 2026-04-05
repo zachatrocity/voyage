@@ -150,7 +150,7 @@ fn seed_trips() -> Vec<Trip> {
 
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
-enum Route {
+pub enum Route {
     #[layout(Navbar)]
         #[route("/")]
         Home {},
