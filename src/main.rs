@@ -30,6 +30,7 @@ fn seed_emails() -> Vec<Email> {
             date: "Mar 15, 2026".into(),
             body_preview: "Thank you for booking with Delta. Your confirmation number is XKRT72. Flight DL-442 departs Boise (BOI) on June 14 at 8:00 AM...".into(),
             category: Category::Flight,
+            tags: vec!["inbox".into(), "travel".into()],
             trip_id: Some("t1".into()),
         },
         Email {
@@ -40,6 +41,7 @@ fn seed_emails() -> Vec<Email> {
             date: "Mar 16, 2026".into(),
             body_preview: "Your reservation is confirmed. Check-in: June 14, 2026. Check-out: June 18, 2026. Confirmation: WDW-88432...".into(),
             category: Category::Hotel,
+            tags: vec!["inbox".into(), "hotel".into()],
             trip_id: Some("t1".into()),
         },
         Email {
@@ -50,6 +52,7 @@ fn seed_emails() -> Vec<Email> {
             date: "Feb 10, 2026".into(),
             body_preview: "Thank you for booking Carnival Horizon. Embarkation: Port Canaveral, June 18, 2026 at 12:00 PM. Booking ID: CCL-99201...".into(),
             category: Category::Cruise,
+            tags: vec!["inbox".into(), "cruise".into()],
             trip_id: Some("t2".into()),
         },
         Email {
@@ -60,6 +63,7 @@ fn seed_emails() -> Vec<Email> {
             date: "Mar 20, 2026".into(),
             body_preview: "E-ticket receipt for UA-2241 Chicago to Boise. Confirmation: UA-XK881...".into(),
             category: Category::Flight,
+            tags: vec!["inbox".into(), "flight".into()],
             trip_id: None,
         },
         Email {
@@ -70,6 +74,7 @@ fn seed_emails() -> Vec<Email> {
             date: "Mar 21, 2026".into(),
             body_preview: "Your stay at Chicago Marriott Downtown is confirmed. Check-in: Aug 5, 2026. Confirmation: MRRT-2091...".into(),
             category: Category::Hotel,
+            tags: vec!["inbox".into(), "hotel".into()],
             trip_id: None,
         },
     ]

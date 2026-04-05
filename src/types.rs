@@ -48,6 +48,7 @@ pub struct Email {
     pub date: String,
     pub body_preview: String,
     pub category: Category,
+    pub tags: Vec<String>,
     pub trip_id: Option<String>,
 }
 

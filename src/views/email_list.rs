@@ -30,6 +30,7 @@ fn to_ui_email(e: &api::EmailResult) -> Email {
         date: e.date.clone(),
         body_preview: e.body_preview.clone(),
         category: e.category.clone(),
+        tags: e.tags.clone(),
         trip_id: e.trip_id.clone(),
     }
 }
@@ -41,13 +42,15 @@ pub fn EmailList() -> Element {
 
     let emails_resource = use_resource(move || {
         let query = search();
-        async move { api::search_emails(&query, Some(50)).await }
-    });
-
-    let discovery_resource = use_resource(|| async move {
-        api::search_emails("", Some(20))
-            .await
-            .map(|r| r.emails.into_iter().filter(|e| e.trip_id.is_none()).count())
+        async move {
+            if query.trim().is_empty() {
+                return Ok(api::SearchResults {
+                    emails: vec![],
+                    total: 0,
+                });
+            }
+            api::search_emails(&query, Some(50)).await
+        }
     });
 
     let filtered = use_memo(move || match &*emails_resource.read_unchecked() {
@@ -60,8 +63,8 @@ pub fn EmailList() -> Element {
         _ => Vec::new(),
     });
 
-    let discovery_count = use_memo(move || match &*discovery_resource.read_unchecked() {
-        Some(Ok(count)) => *count,
+    let discovery_count = use_memo(move || match &*emails_resource.read_unchecked() {
+        Some(Ok(result)) => result.emails.iter().filter(|e| e.trip_id.is_none()).count(),
         _ => 0,
     });
 
@@ -74,7 +77,12 @@ pub fn EmailList() -> Element {
         _ => None,
     });
 
-    let is_loading = use_memo(move || emails_resource.read_unchecked().is_none());
+    let is_loading = use_memo(move || {
+        if search().trim().is_empty() {
+            return false;
+        }
+        emails_resource.read_unchecked().is_none()
+    });
 
     rsx! {
         div { class: "flex flex-col h-full bg-background",
