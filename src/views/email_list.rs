@@ -8,7 +8,8 @@ use crate::components::email_list_item::EmailListItem;
 use crate::components::filter_chips::FilterChips;
 use crate::components::search_bar::SearchBar;
 use crate::types::{Category, Email};
-use crate::SELECTED_EMAIL;
+use crate::Route;
+use crate::{EMAIL_LIST_FILTER, EMAIL_LIST_QUERY, SELECTED_EMAIL};
 
 fn filter_matches(category: &Category, active_filter: &str) -> bool {
     match active_filter {
@@ -37,11 +38,10 @@ fn to_ui_email(e: &api::EmailResult) -> Email {
 
 #[component]
 pub fn EmailList() -> Element {
-    let mut search = use_signal(String::new);
-    let mut active_filter = use_signal(|| "All".to_string());
+    let navigator = use_navigator();
 
     let emails_resource = use_resource(move || {
-        let query = search();
+        let query = EMAIL_LIST_QUERY();
         async move {
             if query.trim().is_empty() {
                 return Ok(api::SearchResults {
@@ -57,7 +57,7 @@ pub fn EmailList() -> Element {
         Some(Ok(result)) => result
             .emails
             .iter()
-            .filter(|e| filter_matches(&e.category, &active_filter()))
+            .filter(|e| filter_matches(&e.category, &EMAIL_LIST_FILTER()))
             .map(to_ui_email)
             .collect::<Vec<Email>>(),
         _ => Vec::new(),
@@ -78,7 +78,7 @@ pub fn EmailList() -> Element {
     });
 
     let is_loading = use_memo(move || {
-        if search().trim().is_empty() {
+        if EMAIL_LIST_QUERY().trim().is_empty() {
             return false;
         }
         emails_resource.read_unchecked().is_none()
@@ -97,15 +97,15 @@ pub fn EmailList() -> Element {
             }
 
             SearchBar {
-                value: search(),
-                on_change: move |v: String| search.set(v),
+                value: EMAIL_LIST_QUERY(),
+                on_change: move |v: String| *EMAIL_LIST_QUERY.write() = v,
             }
 
             DiscoveryBanner { count: discovery_count() }
 
             FilterChips {
-                active: active_filter(),
-                on_change: move |v: String| active_filter.set(v),
+                active: EMAIL_LIST_FILTER(),
+                on_change: move |v: String| *EMAIL_LIST_FILTER.write() = v,
             }
 
             div { class: "flex-1 overflow-y-auto py-2 pb-4",
@@ -129,6 +129,7 @@ pub fn EmailList() -> Element {
                             email: email.clone(),
                             on_click: move |id: String| {
                                 *SELECTED_EMAIL.write() = Some(id);
+                                navigator.push(Route::EmailDetail {});
                             },
                         }
                     }

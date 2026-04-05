@@ -18,6 +18,8 @@ pub static EMAILS: GlobalSignal<Vec<Email>> = Signal::global(|| seed_emails());
 pub static TRIPS: GlobalSignal<Vec<Trip>> = Signal::global(|| seed_trips());
 pub static SELECTED_EMAIL: GlobalSignal<Option<String>> = Signal::global(|| None);
 pub static SELECTED_TRIP: GlobalSignal<Option<String>> = Signal::global(|| None);
+pub static EMAIL_LIST_QUERY: GlobalSignal<String> = Signal::global(String::new);
+pub static EMAIL_LIST_FILTER: GlobalSignal<String> = Signal::global(|| "All".to_string());
 pub static ITINERARY: GlobalSignal<Vec<ItineraryItem>> = Signal::global(|| seed_itinerary());
 
 fn seed_emails() -> Vec<Email> {
@@ -150,7 +152,7 @@ fn seed_trips() -> Vec<Trip> {
 
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
-enum Route {
+pub enum Route {
     #[layout(Navbar)]
         #[route("/")]
         Home {},
