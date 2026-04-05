@@ -34,7 +34,7 @@ pub fn BottomNavBar(active_tab: String) -> Element {
             NavItem { id: "emails", label: "Emails", active_tab: active_tab.clone(), to: Route::EmailList {},
                 Icon { icon: LdMail, width: 20, height: 20 }
             }
-            NavItem { id: "trips", label: "Trips", active_tab: active_tab.clone(), to: Route::Itinerary {},
+            NavItem { id: "trips", label: "Trips", active_tab: active_tab.clone(), to: Route::Trips {},
                 Icon { icon: LdMap, width: 20, height: 20 }
             }
             NavItem { id: "settings", label: "Settings", active_tab: active_tab.clone(), to: Route::Settings {},

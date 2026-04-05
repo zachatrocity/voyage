@@ -6,6 +6,9 @@ pub use home::Home;
 mod navbar;
 pub use navbar::Navbar;
 
+mod trips;
+pub use trips::Trips;
+
 mod itinerary;
 pub use itinerary::Itinerary;
 

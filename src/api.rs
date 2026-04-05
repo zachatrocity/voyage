@@ -73,6 +73,7 @@ pub struct TripEmailItem {
     pub sender: String,
     pub date: String,
     pub category: Category,
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -294,6 +295,7 @@ pub async fn get_trip_emails(trip_id: &str) -> Result<TripEmailsResponse, ApiErr
             sender: item.from.unwrap_or_default(),
             date: item.date.unwrap_or_default(),
             category: Category::Other,
+            tags: item.tags.unwrap_or_default(),
         })
         .collect();
 

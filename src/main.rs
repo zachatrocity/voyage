@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use components::Toast;
-use views::{EmailDetail, EmailList, Home, Itinerary, Navbar, Settings};
+use views::{EmailDetail, EmailList, Home, Itinerary, Navbar, Settings, Trips};
 
 pub mod api;
 mod components;
@@ -158,6 +158,8 @@ pub enum Route {
         Home {},
         #[route("/emails")]
         EmailList {},
+        #[route("/trips")]
+        Trips {},
         #[route("/itinerary")]
         Itinerary {},
         #[route("/settings")]
