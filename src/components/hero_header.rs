@@ -2,10 +2,11 @@ use dioxus::prelude::*;
 use dioxus_free_icons::icons::ld_icons::{LdArrowLeft, LdShare2};
 use dioxus_free_icons::Icon;
 
-use crate::types::Trip;
+use crate::{types::Trip, Route};
 
 #[component]
 pub fn HeroHeader(trip: Trip) -> Element {
+    let navigator = use_navigator();
     rsx! {
         div { class: "relative bg-primary px-4 pt-10 pb-5 overflow-hidden",
             // Subtle texture emoji
@@ -15,7 +16,11 @@ pub fn HeroHeader(trip: Trip) -> Element {
 
             // Back + share row
             div { class: "flex items-center justify-between mb-4",
-                Icon { icon: LdArrowLeft, width: 20, height: 20, class: "text-white/80" }
+                button {
+                    class: "text-white/80",
+                    onclick: move |_| { navigator.push(Route::Trips {}); },
+                    Icon { icon: LdArrowLeft, width: 20, height: 20 }
+                }
                 Icon { icon: LdShare2, width: 20, height: 20, class: "text-white/80" }
             }
 
