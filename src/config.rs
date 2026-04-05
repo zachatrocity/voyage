@@ -21,14 +21,64 @@ pub static APP_CONFIG: GlobalSignal<AppConfig> = Signal::global(|| AppConfig::de
 pub async fn load_config() {
     let mut eval = document::eval(
         r#"
-        let raw = localStorage.getItem("voyage_config");
-        dioxus.send(raw || "");
+        // Priority: query params > localStorage > window.__VOYAGE_CONFIG__
+        const params = new URLSearchParams(window.location.search);
+        const queryConfig = {
+            server_url: params.get("server_url") || "",
+            api_key: params.get("api_key") || "",
+        };
+
+        const localRaw = localStorage.getItem("voyage_config") || "";
+        const windowConfig = (typeof window !== "undefined" && window.__VOYAGE_CONFIG__)
+            ? JSON.stringify(window.__VOYAGE_CONFIG__)
+            : "";
+
+        dioxus.send(JSON.stringify({
+            queryConfig,
+            localRaw,
+            windowConfig,
+        }));
         "#,
     );
-    if let Ok(val) = eval.recv::<String>().await {
-        if !val.is_empty() {
-            if let Ok(config) = serde_json::from_str::<AppConfig>(&val) {
-                *APP_CONFIG.write() = config;
+
+    if let Ok(payload) = eval.recv::<String>().await {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct ConfigPayload {
+            query_config: QueryConfig,
+            local_raw: String,
+            window_config: String,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct QueryConfig {
+            server_url: String,
+            api_key: String,
+        }
+
+        if let Ok(parsed) = serde_json::from_str::<ConfigPayload>(&payload) {
+            if !parsed.query_config.server_url.trim().is_empty() {
+                let mut cfg = APP_CONFIG.read().clone();
+                cfg.server_url = parsed.query_config.server_url;
+                if !parsed.query_config.api_key.is_empty() {
+                    cfg.api_key = parsed.query_config.api_key;
+                }
+                *APP_CONFIG.write() = cfg;
+                return;
+            }
+
+            if !parsed.local_raw.is_empty() {
+                if let Ok(config) = serde_json::from_str::<AppConfig>(&parsed.local_raw) {
+                    *APP_CONFIG.write() = config;
+                    return;
+                }
+            }
+
+            if !parsed.window_config.is_empty() {
+                if let Ok(config) = serde_json::from_str::<AppConfig>(&parsed.window_config) {
+                    *APP_CONFIG.write() = config;
+                }
             }
         }
     }

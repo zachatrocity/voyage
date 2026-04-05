@@ -23,6 +23,43 @@ project/
 ├─ Cargo.toml # The Cargo.toml file defines the dependencies and feature flags for your project
 ```
 
+### Web Support
+
+Voyage supports browser-based development and builds.
+
+#### Requirements
+- Use a `dx` version compatible with this repo's Dioxus version (`0.7.3`)
+- Backend must allow CORS for your web origin (for local dev, usually `http://localhost:8080`)
+
+#### Run web locally
+```bash
+# Build Tailwind + run web dev server
+just dev-web
+
+# Or directly
+npx tailwindcss -i ./input.css -o ./assets/tailwind.css --watch
+# in another shell:
+dx serve --platform web
+```
+
+#### Build web bundle
+```bash
+just build-web
+# or
+dx build --platform web --release
+```
+
+#### Web config options
+Voyage reads config in this order:
+1. URL query params: `?server_url=...&api_key=...`
+2. `localStorage.voyage_config`
+3. `window.__VOYAGE_CONFIG__` (for hosted/static deployments)
+
+Example launch URL:
+```text
+http://localhost:8080/?server_url=http://localhost:8181&api_key=YOUR_KEY
+```
+
 ### Using the Justfile
 
 This project includes a justfile for common development tasks. To use it, make sure you have `just` installed (it's included in the Nix development shell).

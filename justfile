@@ -19,11 +19,21 @@ dev:
     # Start Tailwind CSS watcher in the background
     npx tailwindcss -i ./input.css -o ./assets/tailwind.css --watch &
     TAILWIND_PID=$!
-    
+
     # Start Dioxus development server
     dx serve
-    
+
     # Kill Tailwind watcher when Dioxus server stops
+    kill $TAILWIND_PID
+
+# Start web development server with Tailwind CSS watching
+dev-web:
+    #!/usr/bin/env bash
+    npx tailwindcss -i ./input.css -o ./assets/tailwind.css --watch &
+    TAILWIND_PID=$!
+
+    dx serve --platform web
+
     kill $TAILWIND_PID
 
 # Generate Rust API types from backend Swagger spec
