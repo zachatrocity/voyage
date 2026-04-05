@@ -137,13 +137,27 @@ pub fn Itinerary() -> Element {
     });
 
     let on_add_trip = move |_| {
-        let next_name = match &*trips_resource.read_unchecked() {
+        let fallback_name = match &*trips_resource.read_unchecked() {
             Some(Ok(resp)) => format!("New Trip {}", resp.trips.len() + 1),
             _ => "New Trip".to_string(),
         };
 
         spawn(async move {
-            match api::create_trip(&next_name, "Dates TBD").await {
+            let mut eval = document::eval(
+                r#"
+                const input = window.prompt("Trip name", "");
+                dioxus.send(input ?? "");
+                "#,
+            );
+
+            let entered = eval.recv::<String>().await.unwrap_or_default();
+            let trip_name = if entered.trim().is_empty() {
+                fallback_name
+            } else {
+                entered.trim().to_string()
+            };
+
+            match api::create_trip(&trip_name, "Dates TBD").await {
                 Ok(new_trip) => {
                     *SELECTED_TRIP.write() = Some(new_trip.id.clone());
 
