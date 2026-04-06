@@ -52,6 +52,21 @@ fn map_trip_email_to_timeline(trip_id: &str, e: &api::TripEmailItem) -> Itinerar
 pub fn Itinerary() -> Element {
     let mut refresh_nonce = use_signal(|| 0u64);
 
+    use_effect(move || {
+        spawn(async move {
+            let mut eval = document::eval(
+                r#"
+                const id = new URLSearchParams(window.location.search).get("trip_id") || "";
+                dioxus.send(id);
+                "#,
+            );
+            let trip_id = eval.recv::<String>().await.unwrap_or_default();
+            if !trip_id.trim().is_empty() && SELECTED_TRIP.read().as_deref() != Some(trip_id.as_str()) {
+                *SELECTED_TRIP.write() = Some(trip_id);
+            }
+        });
+    });
+
     let trips_resource = use_resource(move || {
         let _nonce = refresh_nonce();
         async move { api::list_trips().await }
