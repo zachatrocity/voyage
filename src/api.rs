@@ -115,6 +115,14 @@ fn diag_req_failure(call: &str, method: &str, url: &str, error: &str) {
 
 fn client() -> Result<(reqwest::Client, String), ApiError> {
     let cfg = APP_CONFIG.read();
+
+    if cfg.server_url.trim().is_empty() {
+        return Err(ApiError::Server {
+            status: 400,
+            message: "Server is not configured yet. Open Settings and connect your server.".to_string(),
+        });
+    }
+
     let mut headers = HeaderMap::new();
     if !cfg.api_key.is_empty() {
         let val =
