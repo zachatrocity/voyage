@@ -92,8 +92,37 @@ pub struct AssociateTripResponse {
 // Helpers
 // ---------------------------------------------------------------------------
 
+fn diag_trips_config(call: &str) {
+    let cfg = APP_CONFIG.read();
+    eprintln!(
+        "[diag][api::{call}] config server_url={} api_key_present={}",
+        cfg.server_url,
+        !cfg.api_key.is_empty()
+    );
+}
+
+fn diag_req_start(call: &str, method: &str, url: &str) {
+    eprintln!("[diag][api::{call}] request start method={method} url={url}");
+}
+
+fn diag_req_end(call: &str, method: &str, url: &str, status: u16) {
+    eprintln!("[diag][api::{call}] request end method={method} url={url} status={status}");
+}
+
+fn diag_req_failure(call: &str, method: &str, url: &str, error: &str) {
+    eprintln!("[diag][api::{call}] request failure method={method} url={url} error={error}");
+}
+
 fn client() -> Result<(reqwest::Client, String), ApiError> {
     let cfg = APP_CONFIG.read();
+
+    if cfg.server_url.trim().is_empty() {
+        return Err(ApiError::Server {
+            status: 400,
+            message: "Server is not configured yet. Open Settings and connect your server.".to_string(),
+        });
+    }
+
     let mut headers = HeaderMap::new();
     if !cfg.api_key.is_empty() {
         let val =
@@ -233,17 +262,40 @@ pub async fn associate_email_trip(
 }
 
 pub async fn list_trips() -> Result<TripsResponse, ApiError> {
+    let call = "list_trips";
     let (client, base) = client()?;
-    let resp = client
-        .get(format!("{base}/trips"))
-        .send()
-        .await
-        .map_err(|e| ApiError::Network(e.to_string()))?;
+    let url = format!("{base}/trips");
+
+    diag_trips_config(call);
+    diag_req_start(call, "GET", &url);
+
+    let resp = client.get(&url).send().await.map_err(|e| {
+        let msg = e.to_string();
+        diag_req_failure(call, "GET", &url, &msg);
+        ApiError::Network(msg)
+    })?;
+
+    let status = resp.status().as_u16();
+    if !resp.status().is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        diag_req_failure(
+            call,
+            "GET",
+            &url,
+            &format!("status={status} body={message}"),
+        );
+        return Err(ApiError::Server { status, message });
+    }
+    diag_req_end(call, "GET", &url, status);
 
     // Swagger currently models GET /trips as an inline object with
     // additionalProperties: array<tripResponse> (not a named TripsResponse).
     let raw: std::collections::HashMap<String, Vec<gen::TripResponse>> =
-        handle_response(resp).await?;
+        resp.json().await.map_err(|e| {
+            let msg = e.to_string();
+            diag_req_failure(call, "GET", &url, &format!("decode={msg}"));
+            ApiError::Decode(msg)
+        })?;
     let trips = raw
         .get("trips")
         .cloned()
@@ -256,49 +308,112 @@ pub async fn list_trips() -> Result<TripsResponse, ApiError> {
 }
 
 pub async fn create_trip(name: &str, date_range: &str) -> Result<TripResponse, ApiError> {
+    let call = "create_trip";
     let (client, base) = client()?;
+    let url = format!("{base}/trips");
+
+    diag_trips_config(call);
+    diag_req_start(call, "POST", &url);
+
     let resp = client
-        .post(format!("{base}/trips"))
+        .post(&url)
         .json(&gen::CreateTripBody {
             name: Some(name.to_string()),
             date_range: Some(date_range.to_string()),
         })
         .send()
         .await
-        .map_err(|e| ApiError::Network(e.to_string()))?;
+        .map_err(|e| {
+            let msg = e.to_string();
+            diag_req_failure(call, "POST", &url, &msg);
+            ApiError::Network(msg)
+        })?;
+
+    let status = resp.status().as_u16();
+    if !resp.status().is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        diag_req_failure(
+            call,
+            "POST",
+            &url,
+            &format!("status={status} body={message}"),
+        );
+        return Err(ApiError::Server { status, message });
+    }
+    diag_req_end(call, "POST", &url, status);
 
     // Swagger currently omits a concrete 200 response schema for POST /trips.
     // Backend returns a trip-like object; we decode as TripResponse by contract.
-    let raw: gen::TripResponse = handle_response(resp).await?;
+    let raw: gen::TripResponse = resp.json().await.map_err(|e| {
+        let msg = e.to_string();
+        diag_req_failure(call, "POST", &url, &format!("decode={msg}"));
+        ApiError::Decode(msg)
+    })?;
     Ok(map_trip(raw))
 }
 
 pub async fn delete_trip(trip_id: &str) -> Result<(), ApiError> {
+    let call = "delete_trip";
     let (client, base) = client()?;
-    let resp = client
-        .delete(format!("{base}/trips/{trip_id}"))
-        .send()
-        .await
-        .map_err(|e| ApiError::Network(e.to_string()))?;
+    let url = format!("{base}/trips/{trip_id}");
 
+    diag_trips_config(call);
+    diag_req_start(call, "DELETE", &url);
+
+    let resp = client.delete(&url).send().await.map_err(|e| {
+        let msg = e.to_string();
+        diag_req_failure(call, "DELETE", &url, &msg);
+        ApiError::Network(msg)
+    })?;
+
+    let status = resp.status().as_u16();
     if !resp.status().is_success() {
-        let status = resp.status().as_u16();
         let message = resp.text().await.unwrap_or_default();
+        diag_req_failure(
+            call,
+            "DELETE",
+            &url,
+            &format!("status={status} body={message}"),
+        );
         return Err(ApiError::Server { status, message });
     }
 
+    diag_req_end(call, "DELETE", &url, status);
     Ok(())
 }
 
 pub async fn get_trip_emails(trip_id: &str) -> Result<TripEmailsResponse, ApiError> {
+    let call = "get_trip_emails";
     let (client, base) = client()?;
-    let resp = client
-        .get(format!("{base}/trips/{trip_id}/emails"))
-        .send()
-        .await
-        .map_err(|e| ApiError::Network(e.to_string()))?;
+    let url = format!("{base}/trips/{trip_id}/emails");
 
-    let raw: gen::TripEmailsResponse = handle_response(resp).await?;
+    diag_trips_config(call);
+    diag_req_start(call, "GET", &url);
+
+    let resp = client.get(&url).send().await.map_err(|e| {
+        let msg = e.to_string();
+        diag_req_failure(call, "GET", &url, &msg);
+        ApiError::Network(msg)
+    })?;
+
+    let status = resp.status().as_u16();
+    if !resp.status().is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        diag_req_failure(
+            call,
+            "GET",
+            &url,
+            &format!("status={status} body={message}"),
+        );
+        return Err(ApiError::Server { status, message });
+    }
+    diag_req_end(call, "GET", &url, status);
+
+    let raw: gen::TripEmailsResponse = resp.json().await.map_err(|e| {
+        let msg = e.to_string();
+        diag_req_failure(call, "GET", &url, &format!("decode={msg}"));
+        ApiError::Decode(msg)
+    })?;
     let emails = raw
         .emails
         .unwrap_or_default()

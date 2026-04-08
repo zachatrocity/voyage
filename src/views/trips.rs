@@ -2,13 +2,59 @@ use dioxus::prelude::*;
 use dioxus_free_icons::icons::ld_icons::LdPlus;
 use dioxus_free_icons::Icon;
 
-use crate::api::{self, ApiError};
+use crate::api::{self, ApiError, TripResponse};
 use crate::notification::{notify_error, notify_success};
 use crate::types::Trip;
 use crate::{Route, SELECTED_TRIP, TRIPS};
 
+fn diag(msg: impl AsRef<str>) {
+    eprintln!("[diag][trips] {}", msg.as_ref());
+}
+
 fn build_trip_deep_link(origin: &str, trip_id: &str) -> String {
-    format!("{}/itinerary?trip_id={}", origin.trim_end_matches('/'), trip_id)
+    format!(
+        "{}/itinerary?trip_id={}",
+        origin.trim_end_matches('/'),
+        trip_id
+    )
+}
+
+fn map_trip_response_to_trip(t: &TripResponse) -> Trip {
+    Trip {
+        id: t.id.clone(),
+        name: t.name.clone(),
+        date_range: t.date_range.clone(),
+        email_count: t.email_count,
+        confirmed_count: t.confirmed_count,
+    }
+}
+
+fn reconcile_selected_trip(current_selected: Option<String>, trips: &[Trip]) -> Option<String> {
+    if let Some(selected) = current_selected {
+        if trips.iter().any(|t| t.id == selected) {
+            return Some(selected);
+        }
+    }
+
+    trips.first().map(|t| t.id.clone())
+}
+
+async fn refresh_global_trips() -> Result<Vec<Trip>, ApiError> {
+    diag("refresh_global_trips: start");
+    let fresh = api::list_trips().await?;
+    let mapped = fresh
+        .trips
+        .iter()
+        .map(map_trip_response_to_trip)
+        .collect::<Vec<_>>();
+
+    diag(format!(
+        "TRIPS write via refresh_global_trips: {} trips",
+        mapped.len()
+    ));
+    *TRIPS.write() = mapped.clone();
+    diag("refresh_global_trips: done");
+    Ok(mapped)
 }
 
 #[component]
@@ -26,23 +72,9 @@ pub fn Trips() -> Element {
         Some(Ok(resp)) => resp
             .trips
             .iter()
-            .map(|t| Trip {
-                id: t.id.clone(),
-                name: t.name.clone(),
-                date_range: t.date_range.clone(),
-                email_count: t.email_count,
-                confirmed_count: t.confirmed_count,
-            })
+            .map(map_trip_response_to_trip)
             .collect::<Vec<_>>(),
         _ => Vec::new(),
-    });
-
-    use_effect(move || {
-        let latest = trips();
-        let current = TRIPS.read().clone();
-        if current != latest {
-            *TRIPS.write() = latest;
-        }
     });
 
     let load_error = use_memo(move || match &*trips_resource.read_unchecked() {
@@ -55,6 +87,7 @@ pub fn Trips() -> Element {
     });
 
     let on_add_trip = move |_| {
+        diag("add_trip: trigger");
         let fallback_name = match &*trips_resource.read_unchecked() {
             Some(Ok(resp)) => format!("New Trip {}", resp.trips.len() + 1),
             _ => "New Trip".to_string(),
@@ -69,20 +102,45 @@ pub fn Trips() -> Element {
             );
 
             let entered = eval.recv::<String>().await.unwrap_or_default();
+            diag("add_trip: prompt resolved");
             let trip_name = if entered.trim().is_empty() {
                 fallback_name
             } else {
                 entered.trim().to_string()
             };
 
+            diag("add_trip: create_trip request");
             match api::create_trip(&trip_name, "Dates TBD").await {
                 Ok(new_trip) => {
-                    *SELECTED_TRIP.write() = Some(new_trip.id);
+                    diag(format!(
+                        "add_trip: create_trip success trip_id={}",
+                        new_trip.id
+                    ));
+                    diag(format!(
+                        "SELECTED_TRIP write (add_trip create success): {}",
+                        new_trip.id
+                    ));
+                    *SELECTED_TRIP.write() = Some(new_trip.id.clone());
+
+                    diag("add_trip: refresh_global_trips start");
+                    if let Err(err) = refresh_global_trips().await {
+                        notify_error(format!(
+                            "Trip created, but failed to sync refreshed trips: {err}"
+                        ));
+                    }
+
                     refresh_nonce += 1;
+                    diag(format!(
+                        "refresh_nonce incremented -> {} (add_trip)",
+                        refresh_nonce()
+                    ));
                     notify_success("Trip created");
                     navigator.push(Route::Itinerary {});
                 }
-                Err(err) => notify_error(format!("Failed to create trip: {err}")),
+                Err(err) => {
+                    diag(format!("add_trip: create_trip failed error={err}"));
+                    notify_error(format!("Failed to create trip: {err}"))
+                }
             }
         });
     };
@@ -123,6 +181,7 @@ pub fn Trips() -> Element {
                                 onclick: {
                                     let trip_id = trip.id.clone();
                                     move |_| {
+                                        diag(format!("SELECTED_TRIP write (card click): {}", trip_id));
                                         *SELECTED_TRIP.write() = Some(trip_id.clone());
                                         navigator.push(Route::Itinerary {});
                                     }
@@ -145,6 +204,7 @@ pub fn Trips() -> Element {
                                     onclick: {
                                         let trip_id = trip.id.clone();
                                         move |_| {
+                                            diag(format!("SELECTED_TRIP write (open button): {}", trip_id));
                                             *SELECTED_TRIP.write() = Some(trip_id.clone());
                                             navigator.push(Route::Itinerary {});
                                         }
@@ -197,14 +257,15 @@ pub fn Trips() -> Element {
                                     disabled: delete_in_flight().as_ref() == Some(&trip.id),
                                     onclick: {
                                         let trip = trip.clone();
-                                        let selected_trip = SELECTED_TRIP.read().clone();
                                         move |_| {
                                             let trip_for_delete = trip.clone();
-                                            let selected_trip_for_delete = selected_trip.clone();
+                                            diag(format!("delete_trip: clicked trip_id={}", trip_for_delete.id));
                                             if delete_in_flight().as_ref() == Some(&trip_for_delete.id) {
+                                                diag("delete_trip: ignored because delete already in flight");
                                                 return;
                                             }
 
+                                            diag(format!("delete_trip: in-flight set trip_id={}", trip_for_delete.id));
                                             delete_in_flight.set(Some(trip_for_delete.id.clone()));
                                             spawn(async move {
                                                 let confirm_text = format!(
@@ -221,28 +282,57 @@ pub fn Trips() -> Element {
                                                     .await
                                                     .unwrap_or_default()
                                                     == "true";
+                                                diag(format!(
+                                                    "delete_trip: confirm dialog resolved confirmed={confirmed}"
+                                                ));
 
                                                 if !confirmed {
+                                                    diag("delete_trip: cancelled by user");
                                                     delete_in_flight.set(None);
                                                     return;
                                                 }
 
+                                                diag("delete_trip: api request start");
                                                 match api::delete_trip(&trip_for_delete.id).await {
                                                     Ok(_) => {
-                                                        if selected_trip_for_delete.as_ref() == Some(&trip_for_delete.id) {
-                                                            *SELECTED_TRIP.write() = None;
+                                                        diag("delete_trip: api request success");
+                                                        let previous_selection = SELECTED_TRIP.read().clone();
+                                                        diag("delete_trip: refresh_global_trips start");
+                                                        match refresh_global_trips().await {
+                                                            Ok(fresh_trips) => {
+                                                                let next_selected =
+                                                                    reconcile_selected_trip(previous_selection, &fresh_trips);
+                                                                diag(format!(
+                                                                    "SELECTED_TRIP write (post-delete reconcile): {:?}",
+                                                                    next_selected
+                                                                ));
+                                                                *SELECTED_TRIP.write() = next_selected;
+                                                            }
+                                                            Err(err) => {
+                                                                notify_error(format!(
+                                                                    "Trip deleted, but failed to sync refreshed trips: {err}"
+                                                                ));
+                                                            }
                                                         }
+
                                                         refresh_nonce += 1;
+                                                        diag(format!(
+                                                            "refresh_nonce incremented -> {} (delete_trip)",
+                                                            refresh_nonce()
+                                                        ));
                                                         notify_success("Trip deleted");
                                                     }
                                                     Err(ApiError::Server { status: 404, .. }) => {
+                                                        diag("delete_trip: api returned 404");
                                                         notify_error("Delete is not available on this backend yet");
                                                     }
                                                     Err(err) => {
+                                                        diag(format!("delete_trip: api request failed error={err}"));
                                                         notify_error(format!("Delete failed: {err}"));
                                                     }
                                                 }
 
+                                                diag("delete_trip: in-flight cleared");
                                                 delete_in_flight.set(None);
                                             });
                                         }
@@ -274,9 +364,40 @@ pub fn Trips() -> Element {
 mod tests {
     use super::*;
 
+    fn mk_trip(id: &str) -> Trip {
+        Trip {
+            id: id.to_string(),
+            name: format!("Trip {id}"),
+            date_range: "Dates TBD".to_string(),
+            email_count: 0,
+            confirmed_count: 0,
+        }
+    }
+
     #[test]
     fn deep_link_format_is_expected() {
         let link = build_trip_deep_link("https://voyage.local", "trip-123");
         assert_eq!(link, "https://voyage.local/itinerary?trip_id=trip-123");
+    }
+
+    #[test]
+    fn reconcile_keeps_existing_selection_when_present() {
+        let trips = vec![mk_trip("a"), mk_trip("b")];
+        let selected = reconcile_selected_trip(Some("b".to_string()), &trips);
+        assert_eq!(selected, Some("b".to_string()));
+    }
+
+    #[test]
+    fn reconcile_falls_back_to_first_trip_when_selection_is_missing() {
+        let trips = vec![mk_trip("a"), mk_trip("b")];
+        let selected = reconcile_selected_trip(Some("missing".to_string()), &trips);
+        assert_eq!(selected, Some("a".to_string()));
+    }
+
+    #[test]
+    fn reconcile_returns_none_when_no_trips_exist() {
+        let trips = vec![];
+        let selected = reconcile_selected_trip(Some("missing".to_string()), &trips);
+        assert_eq!(selected, None);
     }
 }

@@ -4,18 +4,18 @@ use crate::notification::{NotificationKind, NOTIFICATION};
 
 #[component]
 pub fn Toast() -> Element {
-    // Track whether a notification is active so we can spawn a single dismiss timer
-    let mut timer_running = use_signal(|| false);
-
     let notification = NOTIFICATION();
 
-    // Spawn auto-dismiss timer only when a new notification arrives and no timer is active
-    if notification.is_some() && !timer_running() {
-        timer_running.set(true);
-        spawn(async move {
-            gloo_timers::future::TimeoutFuture::new(4_000).await;
-            *NOTIFICATION.write() = None;
-            timer_running.set(false);
+    // Important: never write signals during render. Schedule dismiss in an effect.
+    {
+        let notification_for_effect = notification.clone();
+        use_effect(move || {
+            if notification_for_effect.is_some() {
+                spawn(async move {
+                    gloo_timers::future::TimeoutFuture::new(4_000).await;
+                    *NOTIFICATION.write() = None;
+                });
+            }
         });
     }
 
@@ -47,7 +47,6 @@ pub fn Toast() -> Element {
                         class: "{close_btn_class}",
                         onclick: move |_| {
                             *NOTIFICATION.write() = None;
-                            timer_running.set(false);
                         },
                         "\u{00D7}"
                     }

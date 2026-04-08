@@ -9,6 +9,10 @@ use crate::notification::{notify_error, notify_success};
 use crate::types::{Category, ItineraryItem, ItineraryStatus, Trip};
 use crate::{SELECTED_TRIP, TRIPS};
 
+fn diag(msg: impl AsRef<str>) {
+    eprintln!("[diag][itinerary] {}", msg.as_ref());
+}
+
 fn infer_category(subject: &str, tags: &[String]) -> Category {
     let s = subject.to_ascii_lowercase();
     let has_tag = |needle: &str| tags.iter().any(|t| t.to_ascii_lowercase().contains(needle));
@@ -61,7 +65,13 @@ pub fn Itinerary() -> Element {
                 "#,
             );
             let trip_id = eval.recv::<String>().await.unwrap_or_default();
-            if !trip_id.trim().is_empty() && SELECTED_TRIP.read().as_deref() != Some(trip_id.as_str()) {
+            if !trip_id.trim().is_empty()
+                && SELECTED_TRIP.read().as_deref() != Some(trip_id.as_str())
+            {
+                diag(format!(
+                    "SELECTED_TRIP write (query param sync): {}",
+                    trip_id
+                ));
                 *SELECTED_TRIP.write() = Some(trip_id);
             }
         });
@@ -90,6 +100,10 @@ pub fn Itinerary() -> Element {
     use_effect(move || {
         if let Some(id) = selected_trip_id() {
             if SELECTED_TRIP.read().as_ref() != Some(&id) {
+                diag(format!(
+                    "SELECTED_TRIP write (selected_trip_id effect): {}",
+                    id
+                ));
                 *SELECTED_TRIP.write() = Some(id);
             }
         }
@@ -152,6 +166,7 @@ pub fn Itinerary() -> Element {
     });
 
     let on_add_trip = move |_| {
+        diag("add_trip: trigger");
         let fallback_name = match &*trips_resource.read_unchecked() {
             Some(Ok(resp)) => format!("New Trip {}", resp.trips.len() + 1),
             _ => "New Trip".to_string(),
@@ -166,34 +181,62 @@ pub fn Itinerary() -> Element {
             );
 
             let entered = eval.recv::<String>().await.unwrap_or_default();
+            diag("add_trip: prompt resolved");
             let trip_name = if entered.trim().is_empty() {
                 fallback_name
             } else {
                 entered.trim().to_string()
             };
 
+            diag("add_trip: create_trip request");
             match api::create_trip(&trip_name, "Dates TBD").await {
                 Ok(new_trip) => {
+                    diag(format!(
+                        "add_trip: create_trip success trip_id={}",
+                        new_trip.id
+                    ));
+                    diag(format!(
+                        "SELECTED_TRIP write (add_trip create success): {}",
+                        new_trip.id
+                    ));
                     *SELECTED_TRIP.write() = Some(new_trip.id.clone());
 
-                    if let Ok(fresh) = api::list_trips().await {
-                        *TRIPS.write() = fresh
-                            .trips
-                            .into_iter()
-                            .map(|t| Trip {
-                                id: t.id,
-                                name: t.name,
-                                date_range: t.date_range,
-                                email_count: t.email_count,
-                                confirmed_count: t.confirmed_count,
-                            })
-                            .collect();
+                    diag("add_trip: list_trips refresh start");
+                    match api::list_trips().await {
+                        Ok(fresh) => {
+                            let mapped_trips = fresh
+                                .trips
+                                .into_iter()
+                                .map(|t| Trip {
+                                    id: t.id,
+                                    name: t.name,
+                                    date_range: t.date_range,
+                                    email_count: t.email_count,
+                                    confirmed_count: t.confirmed_count,
+                                })
+                                .collect::<Vec<_>>();
+                            diag(format!(
+                                "TRIPS write (post-add refresh): {} trips",
+                                mapped_trips.len()
+                            ));
+                            *TRIPS.write() = mapped_trips;
+                        }
+                        Err(err) => {
+                            diag(format!("add_trip: list_trips refresh failed error={err}"));
+                        }
                     }
 
                     refresh_nonce += 1;
+                    diag(format!(
+                        "refresh_nonce incremented -> {} (add_trip)",
+                        refresh_nonce()
+                    ));
                     notify_success("Trip created");
                 }
-                Err(err) => notify_error(format!("Failed to create trip: {err}")),
+                Err(err) => {
+                    diag(format!("add_trip: create_trip failed error={err}"));
+                    notify_error(format!("Failed to create trip: {err}"))
+                }
             }
         });
     };
