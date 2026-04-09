@@ -32,6 +32,35 @@ fn infer_category(subject: &str, tags: &[String]) -> Category {
     }
 }
 
+fn format_timeline_date(raw: &str) -> String {
+    let date_part = raw.split('T').next().unwrap_or(raw).trim();
+    let mut parts = date_part.split('-');
+    let (year, month, day) = match (parts.next(), parts.next(), parts.next()) {
+        (Some(y), Some(m), Some(d)) => (y, m, d),
+        _ => return date_part.to_string(),
+    };
+
+    let month_name = match month {
+        "01" => "Jan",
+        "02" => "Feb",
+        "03" => "Mar",
+        "04" => "Apr",
+        "05" => "May",
+        "06" => "Jun",
+        "07" => "Jul",
+        "08" => "Aug",
+        "09" => "Sep",
+        "10" => "Oct",
+        "11" => "Nov",
+        "12" => "Dec",
+        _ => return date_part.to_string(),
+    };
+
+    let day = day.trim_start_matches('0');
+    let day = if day.is_empty() { "0" } else { day };
+    format!("{month_name} {day}, {year}")
+}
+
 fn map_trip_email_to_timeline(trip_id: &str, e: &api::TripEmailItem) -> ItineraryItem {
     let title = if e.subject.trim().is_empty() {
         "Untitled email".to_string()
@@ -46,7 +75,7 @@ fn map_trip_email_to_timeline(trip_id: &str, e: &api::TripEmailItem) -> Itinerar
         title,
         detail: e.sender.clone(),
         sub_detail: None,
-        date: e.date.clone(),
+        date: format_timeline_date(&e.date),
         category: infer_category(&e.subject, &e.tags),
         status: ItineraryStatus::Confirmed,
     }

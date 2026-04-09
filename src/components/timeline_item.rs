@@ -23,11 +23,11 @@ pub fn TimelineItem(item: ItineraryItem, show_date: bool) -> Element {
             // Left: timeline line + icon
             div { class: "flex flex-col items-center",
                 if show_date {
-                    span { class: "text-xs font-semibold text-muted mb-1 w-12 text-center",
+                    span { class: "text-[11px] font-semibold text-muted mb-1 w-16 text-center leading-tight",
                         "{item.date}"
                     }
                 } else {
-                    div { class: "h-5 w-12" }
+                    div { class: "h-5 w-16" }
                 }
                 div { class: "w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-lg z-10",
                     "{emoji}"
