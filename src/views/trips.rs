@@ -190,7 +190,7 @@ pub fn Trips() -> Element {
                                 },
                                 div { class: "font-semibold text-foreground", "{trip.name}" }
                                 div { class: "text-sm text-muted", "{trip.date_range}" }
-                                div { class: "flex gap-2 mt-2",
+                                div { class: "flex gap-2 mt-2 mb-2",
                                     span { class: "text-xs px-2 py-0.5 rounded-full border border-primary text-primary",
                                         "{trip.email_count} emails"
                                     }
@@ -200,7 +200,7 @@ pub fn Trips() -> Element {
                                 }
                             }
 
-                            div { class: "mt-3 pt-2 border-t border-border flex gap-2",
+                            div { class: "mt-3 pt-3 border-t border-border flex gap-2",
                                 button {
                                     class: "text-xs px-3 py-1 rounded-full border border-border text-foreground",
                                     onclick: {
