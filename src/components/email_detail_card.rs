@@ -36,7 +36,7 @@ pub fn EmailDetailCard(email: Email) -> Element {
             }
 
             // Body
-            div {
+            div { class: "max-h-[52vh] overflow-y-auto pr-1",
                 p { class: "text-sm text-muted leading-relaxed whitespace-pre-wrap break-words", "{email.body_preview}" }
             }
         }
