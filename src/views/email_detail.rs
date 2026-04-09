@@ -52,8 +52,12 @@ pub fn EmailDetail() -> Element {
         let _nonce = refresh_nonce();
         async move {
             match email_id {
-                Some(id) => api::get_email_content(&id).await.map(|r| r.body),
-                None => Ok(String::new()),
+                Some(id) => api::get_email_content(&id).await,
+                None => Ok(api::EmailContentResponse {
+                    message_id: String::new(),
+                    body: String::new(),
+                    html_body: None,
+                }),
             }
         }
     });
@@ -142,7 +146,11 @@ pub fn EmailDetail() -> Element {
                         EmailDetailCard {
                             email: email.clone(),
                             full_body: match &*email_content_resource.read_unchecked() {
-                                Some(Ok(body)) if !body.trim().is_empty() => Some(body.clone()),
+                                Some(Ok(content)) if !content.body.trim().is_empty() => Some(content.body.clone()),
+                                _ => None,
+                            },
+                            full_html: match &*email_content_resource.read_unchecked() {
+                                Some(Ok(content)) => content.html_body.clone(),
                                 _ => None,
                             },
                             loading_full_body: email_content_resource.read_unchecked().is_none(),

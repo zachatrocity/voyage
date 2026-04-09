@@ -68,7 +68,12 @@ fn format_email_datetime(raw: &str) -> String {
 }
 
 #[component]
-pub fn EmailDetailCard(email: Email, full_body: Option<String>, loading_full_body: bool) -> Element {
+pub fn EmailDetailCard(
+    email: Email,
+    full_body: Option<String>,
+    full_html: Option<String>,
+    loading_full_body: bool,
+) -> Element {
     let body_text = full_body.unwrap_or_else(|| email.body_preview.clone());
     let formatted_date = format_email_datetime(&email.date);
 
@@ -108,8 +113,16 @@ pub fn EmailDetailCard(email: Email, full_body: Option<String>, loading_full_bod
                 if loading_full_body {
                     p { class: "text-xs text-muted mb-2", "Loading full email…" }
                 }
-                p { class: "text-sm text-muted leading-relaxed whitespace-pre-wrap break-words",
-                    "{body_text}"
+
+                if let Some(html) = full_html {
+                    div {
+                        class: "text-sm text-foreground leading-relaxed break-words [&_a]:text-primary [&_a]:underline",
+                        dangerous_inner_html: "{html}",
+                    }
+                } else {
+                    p { class: "text-sm text-muted leading-relaxed whitespace-pre-wrap break-words",
+                        "{body_text}"
+                    }
                 }
             }
         }

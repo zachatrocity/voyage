@@ -92,6 +92,7 @@ pub struct AssociateTripResponse {
 pub struct EmailContentResponse {
     pub message_id: String,
     pub body: String,
+    pub html_body: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
