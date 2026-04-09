@@ -200,7 +200,7 @@ pub fn Trips() -> Element {
                                 }
                             }
 
-                            div { class: "mt-2 pt-2 border-t border-border flex gap-2",
+                            div { class: "mt-3 pt-2 border-t border-border flex gap-2",
                                 button {
                                     class: "text-xs px-3 py-1 rounded-full border border-border text-foreground",
                                     onclick: {
