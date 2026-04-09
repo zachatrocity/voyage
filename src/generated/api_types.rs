@@ -3,6 +3,17 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClassifierCategoryRule {
+    pub domains: Option<Vec<String>>,
+    pub subject_keywords: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClassifierClassifiersConfig {
+    pub categories: Option<std::collections::HashMap<String, ClassifierCategoryRule>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TripEmailItem {
     pub date: Option<String>,
     pub filename: Option<String>,
@@ -40,6 +51,13 @@ pub struct TripResponse {
     pub email_count: Option<i64>,
     pub id: Option<String>,
     pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotmuchEmailContentResponse {
+    pub body: Option<String>,
+    pub html_body: Option<String>,
+    pub message_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
