@@ -8,6 +8,7 @@ mod components;
 pub mod config;
 pub mod generated;
 pub mod notification;
+pub mod trip_creation;
 mod types;
 mod views;
 
