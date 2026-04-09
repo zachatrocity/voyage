@@ -7,6 +7,7 @@ use crate::components::bottom_sheet::BottomSheet;
 use crate::components::email_detail_card::EmailDetailCard;
 use crate::components::trip_chip::TripChip;
 use crate::notification::{notify_error, notify_success};
+use crate::trip_creation::prompt_trip_creation;
 use crate::types::{Email, Trip};
 use crate::SELECTED_EMAIL;
 
@@ -78,21 +79,11 @@ pub fn EmailDetail() -> Element {
         };
 
         spawn(async move {
-            let mut eval = document::eval(
-                r#"
-                const input = window.prompt("Trip name", "");
-                dioxus.send(input ?? "");
-                "#,
-            );
-
-            let entered = eval.recv::<String>().await.unwrap_or_default();
-            let trip_name = if entered.trim().is_empty() {
-                fallback_name
-            } else {
-                entered.trim().to_string()
+            let Some(input) = prompt_trip_creation(&fallback_name).await else {
+                return;
             };
 
-            match api::create_trip(&trip_name, "Dates TBD").await {
+            match api::create_trip(&input.name, &input.date_range).await {
                 Ok(created) => {
                     selected_trip_id.set(Some(created.id));
                     trips_refresh_nonce += 1;

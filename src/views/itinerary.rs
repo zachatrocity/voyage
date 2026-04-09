@@ -6,6 +6,7 @@ use crate::api::{self, ApiError};
 use crate::components::hero_header::HeroHeader;
 use crate::components::timeline_item::TimelineItem;
 use crate::notification::{notify_error, notify_success};
+use crate::trip_creation::prompt_trip_creation;
 use crate::types::{Category, ItineraryItem, ItineraryStatus, Trip};
 use crate::{SELECTED_TRIP, TRIPS};
 
@@ -185,23 +186,14 @@ pub fn Itinerary() -> Element {
         };
 
         spawn(async move {
-            let mut eval = document::eval(
-                r#"
-                const input = window.prompt("Trip name", "");
-                dioxus.send(input ?? "");
-                "#,
-            );
-
-            let entered = eval.recv::<String>().await.unwrap_or_default();
-            diag("add_trip: prompt resolved");
-            let trip_name = if entered.trim().is_empty() {
-                fallback_name
-            } else {
-                entered.trim().to_string()
+            let Some(input) = prompt_trip_creation(&fallback_name).await else {
+                diag("add_trip: cancelled");
+                return;
             };
 
+            diag("add_trip: prompt resolved");
             diag("add_trip: create_trip request");
-            match api::create_trip(&trip_name, "Dates TBD").await {
+            match api::create_trip(&input.name, &input.date_range).await {
                 Ok(new_trip) => {
                     diag(format!(
                         "add_trip: create_trip success trip_id={}",
