@@ -3,7 +3,9 @@ use dioxus::prelude::*;
 use crate::types::{Category, Email};
 
 #[component]
-pub fn EmailDetailCard(email: Email) -> Element {
+pub fn EmailDetailCard(email: Email, full_body: Option<String>, loading_full_body: bool) -> Element {
+    let body_text = full_body.unwrap_or_else(|| email.body_preview.clone());
+
     let emoji = match email.category {
         Category::Flight => "✈️",
         Category::Hotel => "🏨",
@@ -37,7 +39,12 @@ pub fn EmailDetailCard(email: Email) -> Element {
 
             // Body
             div { class: "max-h-[52vh] overflow-y-auto pr-1",
-                p { class: "text-sm text-muted leading-relaxed whitespace-pre-wrap break-words", "{email.body_preview}" }
+                if loading_full_body {
+                    p { class: "text-xs text-muted mb-2", "Loading full email…" }
+                }
+                p { class: "text-sm text-muted leading-relaxed whitespace-pre-wrap break-words",
+                    "{body_text}"
+                }
             }
         }
     }

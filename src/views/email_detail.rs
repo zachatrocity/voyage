@@ -47,6 +47,17 @@ pub fn EmailDetail() -> Element {
         async move { api::list_trips().await }
     });
 
+    let email_content_resource = use_resource(move || {
+        let email_id = selected_id();
+        let _nonce = refresh_nonce();
+        async move {
+            match email_id {
+                Some(id) => api::get_email_content(&id).await.map(|r| r.body),
+                None => Ok(String::new()),
+            }
+        }
+    });
+
     let on_confirm = move |_| {
         let trip_id = selected_trip_id();
         let email_id = selected_id();
@@ -128,7 +139,14 @@ pub fn EmailDetail() -> Element {
                         }
                     },
                     Some(Ok(email)) => rsx! {
-                        EmailDetailCard { email: email.clone() }
+                        EmailDetailCard {
+                            email: email.clone(),
+                            full_body: match &*email_content_resource.read_unchecked() {
+                                Some(Ok(body)) if !body.trim().is_empty() => Some(body.clone()),
+                                _ => None,
+                            },
+                            loading_full_body: email_content_resource.read_unchecked().is_none(),
+                        }
                     },
                 }
             }

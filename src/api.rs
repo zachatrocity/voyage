@@ -88,6 +88,12 @@ pub struct AssociateTripResponse {
     pub trip_id: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmailContentResponse {
+    pub message_id: String,
+    pub body: String,
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -241,6 +247,17 @@ pub async fn tag_email(id: &str, tag: &str) -> Result<EmailResult, ApiError> {
 
     let raw: gen::EmailResult = handle_response(resp).await?;
     Ok(map_email(raw))
+}
+
+pub async fn get_email_content(id: &str) -> Result<EmailContentResponse, ApiError> {
+    let (client, base) = client()?;
+    let resp = client
+        .get(format!("{base}/email/{id}/content"))
+        .send()
+        .await
+        .map_err(|e| ApiError::Network(e.to_string()))?;
+
+    handle_response(resp).await
 }
 
 pub async fn associate_email_trip(
