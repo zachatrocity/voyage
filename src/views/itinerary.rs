@@ -147,6 +147,18 @@ pub fn Itinerary() -> Element {
         }
     });
 
+    let header_trip: Memo<Option<Trip>> = use_memo(move || {
+        let mut base = trip();
+        if let Some(current) = base.as_mut() {
+            if let Some(Ok(emails)) = &*trip_emails_resource.read_unchecked() {
+                let count = emails.len();
+                current.email_count = count;
+                current.confirmed_count = count;
+            }
+        }
+        base
+    });
+
     let trip_error = use_memo(move || match &*trips_resource.read_unchecked() {
         Some(Err(err)) => Some(match err {
             ApiError::Network(msg) => format!("Network error: {msg}"),
@@ -247,7 +259,7 @@ pub fn Itinerary() -> Element {
                 div { class: "mx-4 mt-4 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700",
                     "{err}"
                 }
-            } else if let Some(current_trip) = trip() {
+            } else if let Some(current_trip) = header_trip() {
                 HeroHeader { trip: current_trip }
 
                 div { class: "flex-1 overflow-y-auto px-4 pt-4 pb-24",

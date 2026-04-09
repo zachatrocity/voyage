@@ -29,6 +29,25 @@ fn map_trip_response_to_trip(t: &TripResponse) -> Trip {
     }
 }
 
+async fn list_trips_with_live_counts() -> Result<Vec<Trip>, ApiError> {
+    let fresh = api::list_trips().await?;
+    let mut mapped = fresh
+        .trips
+        .iter()
+        .map(map_trip_response_to_trip)
+        .collect::<Vec<_>>();
+
+    for trip in mapped.iter_mut() {
+        if let Ok(resp) = api::get_trip_emails(&trip.id).await {
+            let count = resp.emails.len();
+            trip.email_count = count;
+            trip.confirmed_count = count;
+        }
+    }
+
+    Ok(mapped)
+}
+
 fn reconcile_selected_trip(current_selected: Option<String>, trips: &[Trip]) -> Option<String> {
     if let Some(selected) = current_selected {
         if trips.iter().any(|t| t.id == selected) {
@@ -41,12 +60,7 @@ fn reconcile_selected_trip(current_selected: Option<String>, trips: &[Trip]) -> 
 
 async fn refresh_global_trips() -> Result<Vec<Trip>, ApiError> {
     diag("refresh_global_trips: start");
-    let fresh = api::list_trips().await?;
-    let mapped = fresh
-        .trips
-        .iter()
-        .map(map_trip_response_to_trip)
-        .collect::<Vec<_>>();
+    let mapped = list_trips_with_live_counts().await?;
 
     diag(format!(
         "TRIPS write via refresh_global_trips: {} trips",
@@ -65,15 +79,11 @@ pub fn Trips() -> Element {
 
     let trips_resource = use_resource(move || {
         let _nonce = refresh_nonce();
-        async move { api::list_trips().await }
+        async move { list_trips_with_live_counts().await }
     });
 
     let trips = use_memo(move || match &*trips_resource.read_unchecked() {
-        Some(Ok(resp)) => resp
-            .trips
-            .iter()
-            .map(map_trip_response_to_trip)
-            .collect::<Vec<_>>(),
+        Some(Ok(items)) => items.clone(),
         _ => Vec::new(),
     });
 
@@ -89,7 +99,7 @@ pub fn Trips() -> Element {
     let on_add_trip = move |_| {
         diag("add_trip: trigger");
         let fallback_name = match &*trips_resource.read_unchecked() {
-            Some(Ok(resp)) => format!("New Trip {}", resp.trips.len() + 1),
+            Some(Ok(resp)) => format!("New Trip {}", resp.len() + 1),
             _ => "New Trip".to_string(),
         };
 
