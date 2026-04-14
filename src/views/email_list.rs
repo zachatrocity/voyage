@@ -63,7 +63,6 @@ fn to_ui_email(e: &api::EmailResult) -> Email {
 #[component]
 pub fn EmailList() -> Element {
     let navigator = use_navigator();
-    let mut manual_query = use_signal(String::new);
 
     // Load classifiers once on mount so pill taps can use their terms.
     use_effect(move || {
@@ -133,9 +132,8 @@ pub fn EmailList() -> Element {
             }
 
             SearchBar {
-                value: manual_query(),
+                value: EMAIL_LIST_QUERY(),
                 on_change: move |v: String| {
-                    manual_query.set(v.clone());
                     // When the user types, reset filter to All so the manual
                     // query drives search without category restriction.
                     if EMAIL_LIST_FILTER() != "All" {
@@ -151,11 +149,10 @@ pub fn EmailList() -> Element {
                 active: EMAIL_LIST_FILTER(),
                 on_change: move |v: String| {
                     *EMAIL_LIST_FILTER.write() = v.clone();
-                    if v == "All" {
-                        // Restore whatever the user had typed manually.
-                        *EMAIL_LIST_QUERY.write() = manual_query();
-                    } else if let Some(q) = query_from_classifier(&v) {
-                        *EMAIL_LIST_QUERY.write() = q;
+                    if v != "All" {
+                        if let Some(q) = query_from_classifier(&v) {
+                            *EMAIL_LIST_QUERY.write() = q;
+                        }
                     }
                 },
             }
