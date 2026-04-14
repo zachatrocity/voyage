@@ -9,7 +9,7 @@ use crate::components::filter_chips::FilterChips;
 use crate::components::search_bar::SearchBar;
 use crate::types::{Category, Email};
 use crate::Route;
-use crate::{EMAIL_LIST_FILTER, EMAIL_LIST_QUERY, SELECTED_EMAIL};
+use crate::{CLASSIFIERS, EMAIL_LIST_FILTER, EMAIL_LIST_QUERY, SELECTED_EMAIL};
 
 fn filter_matches(category: &Category, active_filter: &str) -> bool {
     match active_filter {
@@ -20,6 +20,30 @@ fn filter_matches(category: &Category, active_filter: &str) -> bool {
         "Other" => *category == Category::Other || *category == Category::Activity,
         _ => true, // "All"
     }
+}
+
+/// Map a filter-chip label to the classifier category key used by the backend.
+fn pill_to_classifier_key(pill: &str) -> Option<&'static str> {
+    match pill {
+        "Flights ✈️" => Some("flights"),
+        "Hotels 🏨" => Some("hotels"),
+        "Car Rental 🚗" => Some("car_rental"),
+        "Cruises 🚢" => Some("cruises"),
+        "Other" => Some("other"),
+        _ => None,
+    }
+}
+
+/// Build a search query from a classifier category's subject keywords.
+fn query_from_classifier(filter: &str) -> Option<String> {
+    let key = pill_to_classifier_key(filter)?;
+    let classifiers = CLASSIFIERS();
+    let cfg = classifiers.as_ref()?;
+    let rule = cfg.categories.get(key)?;
+    if rule.subject_keywords.is_empty() {
+        return None;
+    }
+    Some(rule.subject_keywords.join(" OR "))
 }
 
 fn to_ui_email(e: &api::EmailResult) -> Email {
@@ -39,6 +63,18 @@ fn to_ui_email(e: &api::EmailResult) -> Email {
 #[component]
 pub fn EmailList() -> Element {
     let navigator = use_navigator();
+    let mut manual_query = use_signal(String::new);
+
+    // Load classifiers once on mount so pill taps can use their terms.
+    use_effect(move || {
+        if CLASSIFIERS().is_none() {
+            spawn(async move {
+                if let Ok(cfg) = api::get_classifiers().await {
+                    *CLASSIFIERS.write() = Some(cfg);
+                }
+            });
+        }
+    });
 
     let emails_resource = use_resource(move || {
         let query = EMAIL_LIST_QUERY();
@@ -97,15 +133,31 @@ pub fn EmailList() -> Element {
             }
 
             SearchBar {
-                value: EMAIL_LIST_QUERY(),
-                on_change: move |v: String| *EMAIL_LIST_QUERY.write() = v,
+                value: manual_query(),
+                on_change: move |v: String| {
+                    manual_query.set(v.clone());
+                    // When the user types, reset filter to All so the manual
+                    // query drives search without category restriction.
+                    if EMAIL_LIST_FILTER() != "All" {
+                        *EMAIL_LIST_FILTER.write() = "All".to_string();
+                    }
+                    *EMAIL_LIST_QUERY.write() = v;
+                },
             }
 
             DiscoveryBanner { count: discovery_count() }
 
             FilterChips {
                 active: EMAIL_LIST_FILTER(),
-                on_change: move |v: String| *EMAIL_LIST_FILTER.write() = v,
+                on_change: move |v: String| {
+                    *EMAIL_LIST_FILTER.write() = v.clone();
+                    if v == "All" {
+                        // Restore whatever the user had typed manually.
+                        *EMAIL_LIST_QUERY.write() = manual_query();
+                    } else if let Some(q) = query_from_classifier(&v) {
+                        *EMAIL_LIST_QUERY.write() = q;
+                    }
+                },
             }
 
             div { class: "flex-1 overflow-y-auto py-2 pb-4",
