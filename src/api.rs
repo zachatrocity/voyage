@@ -104,6 +104,7 @@ pub struct CategoryRule {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClassifiersConfig {
     pub categories: std::collections::HashMap<String, CategoryRule>,
+    pub category_titles: std::collections::HashMap<String, String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -223,7 +224,10 @@ fn map_classifiers(raw: gen::ClassifierClassifiersConfig) -> ClassifiersConfig {
         })
         .collect();
 
-    ClassifiersConfig { categories }
+    ClassifiersConfig {
+        categories,
+        category_titles: raw.category_titles.unwrap_or_default(),
+    }
 }
 
 fn unmap_classifiers(cfg: &ClassifiersConfig) -> gen::ClassifierClassifiersConfig {
@@ -243,6 +247,7 @@ fn unmap_classifiers(cfg: &ClassifiersConfig) -> gen::ClassifierClassifiersConfi
 
     gen::ClassifierClassifiersConfig {
         categories: Some(categories),
+        category_titles: Some(cfg.category_titles.clone()),
     }
 }
 

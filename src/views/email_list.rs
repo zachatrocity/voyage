@@ -5,41 +5,123 @@ use dioxus_free_icons::Icon;
 use crate::api::{self, ApiError};
 use crate::components::discovery_banner::DiscoveryBanner;
 use crate::components::email_list_item::EmailListItem;
-use crate::components::filter_chips::FilterChips;
+use crate::components::filter_chips::{FilterChip, FilterChips};
 use crate::components::search_bar::SearchBar;
 use crate::types::{Category, Email};
 use crate::Route;
 use crate::{CLASSIFIERS, EMAIL_LIST_FILTER, EMAIL_LIST_QUERY, SELECTED_EMAIL};
 
-fn filter_matches(category: &Category, active_filter: &str) -> bool {
-    match active_filter {
-        "Flights ✈️" => *category == Category::Flight,
-        "Hotels 🏨" => *category == Category::Hotel,
-        "Car Rental 🚗" => *category == Category::CarRental,
-        "Cruises 🚢" => *category == Category::Cruise,
-        "Other" => *category == Category::Other || *category == Category::Activity,
-        _ => true, // "All"
+fn category_key(category: &Category) -> &'static str {
+    match category {
+        Category::Flight => "flight",
+        Category::Hotel => "hotel",
+        Category::CarRental => "car_rental",
+        Category::Cruise => "cruise",
+        Category::Activity => "activity",
+        Category::Other => "other",
     }
 }
 
-/// Map a filter-chip label to the classifier category key used by the backend.
-fn pill_to_classifier_key(pill: &str) -> Option<&'static str> {
-    match pill {
-        "Flights ✈️" => Some("flights"),
-        "Hotels 🏨" => Some("hotels"),
-        "Car Rental 🚗" => Some("car_rental"),
-        "Cruises 🚢" => Some("cruises"),
-        "Other" => Some("other"),
-        _ => None,
+fn filter_matches(category: &Category, active_filter: &str) -> bool {
+    active_filter == "all" || category_key(category) == active_filter
+}
+
+fn fallback_title_for_category(key: &str) -> String {
+    match key {
+        "flight" => "Flights ✈️".to_string(),
+        "hotel" => "Hotels 🏨".to_string(),
+        "car_rental" => "Car Rental 🚗".to_string(),
+        "cruise" => "Cruises 🚢".to_string(),
+        "activity" => "Activities 🎟️".to_string(),
+        "other" => "Other 📧".to_string(),
+        _ => key
+            .split('_')
+            .map(|w| {
+                let mut chars = w.chars();
+                match chars.next() {
+                    Some(first) => {
+                        first.to_uppercase().collect::<String>() + chars.as_str()
+                    }
+                    None => String::new(),
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(" "),
     }
+}
+
+fn chip_filters() -> Vec<FilterChip> {
+    let mut out = vec![FilterChip {
+        key: "all".to_string(),
+        label: "All".to_string(),
+    }];
+
+    let cfg = CLASSIFIERS();
+    let Some(cfg) = cfg.as_ref() else {
+        out.push(FilterChip {
+            key: "flight".to_string(),
+            label: fallback_title_for_category("flight"),
+        });
+        out.push(FilterChip {
+            key: "hotel".to_string(),
+            label: fallback_title_for_category("hotel"),
+        });
+        out.push(FilterChip {
+            key: "car_rental".to_string(),
+            label: fallback_title_for_category("car_rental"),
+        });
+        out.push(FilterChip {
+            key: "cruise".to_string(),
+            label: fallback_title_for_category("cruise"),
+        });
+        out.push(FilterChip {
+            key: "activity".to_string(),
+            label: fallback_title_for_category("activity"),
+        });
+        return out;
+    };
+
+    let preferred_order = ["flight", "hotel", "car_rental", "cruise", "activity", "other"];
+    for key in preferred_order {
+        if cfg.categories.contains_key(key) {
+            out.push(FilterChip {
+                key: key.to_string(),
+                label: cfg
+                    .category_titles
+                    .get(key)
+                    .cloned()
+                    .unwrap_or_else(|| fallback_title_for_category(key)),
+            });
+        }
+    }
+
+    let mut extras = cfg
+        .categories
+        .keys()
+        .filter(|k| !preferred_order.contains(&k.as_str()))
+        .cloned()
+        .collect::<Vec<_>>();
+    extras.sort();
+
+    for key in extras {
+        out.push(FilterChip {
+            label: cfg
+                .category_titles
+                .get(&key)
+                .cloned()
+                .unwrap_or_else(|| fallback_title_for_category(&key)),
+            key,
+        });
+    }
+
+    out
 }
 
 /// Build a search query from a classifier category's subject keywords.
-fn query_from_classifier(filter: &str) -> Option<String> {
-    let key = pill_to_classifier_key(filter)?;
+fn query_from_classifier(category_key: &str) -> Option<String> {
     let classifiers = CLASSIFIERS();
     let cfg = classifiers.as_ref()?;
-    let rule = cfg.categories.get(key)?;
+    let rule = cfg.categories.get(category_key)?;
     if rule.subject_keywords.is_empty() {
         return None;
     }
@@ -136,8 +218,8 @@ pub fn EmailList() -> Element {
                 on_change: move |v: String| {
                     // When the user types, reset filter to All so the manual
                     // query drives search without category restriction.
-                    if EMAIL_LIST_FILTER() != "All" {
-                        *EMAIL_LIST_FILTER.write() = "All".to_string();
+                    if EMAIL_LIST_FILTER() != "all" {
+                        *EMAIL_LIST_FILTER.write() = "all".to_string();
                     }
                     *EMAIL_LIST_QUERY.write() = v;
                 },
@@ -147,9 +229,10 @@ pub fn EmailList() -> Element {
 
             FilterChips {
                 active: EMAIL_LIST_FILTER(),
+                filters: chip_filters(),
                 on_change: move |v: String| {
                     *EMAIL_LIST_FILTER.write() = v.clone();
-                    if v != "All" {
+                    if v != "all" {
                         if let Some(q) = query_from_classifier(&v) {
                             *EMAIL_LIST_QUERY.write() = q;
                         }

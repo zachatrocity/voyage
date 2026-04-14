@@ -11,6 +11,7 @@ pub struct ClassifierCategoryRule {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClassifierClassifiersConfig {
     pub categories: Option<std::collections::HashMap<String, ClassifierCategoryRule>>,
+    pub category_titles: Option<std::collections::HashMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -21,7 +21,7 @@ pub static TRIPS: GlobalSignal<Vec<Trip>> = Signal::global(|| seed_trips());
 pub static SELECTED_EMAIL: GlobalSignal<Option<String>> = Signal::global(|| None);
 pub static SELECTED_TRIP: GlobalSignal<Option<String>> = Signal::global(|| None);
 pub static EMAIL_LIST_QUERY: GlobalSignal<String> = Signal::global(String::new);
-pub static EMAIL_LIST_FILTER: GlobalSignal<String> = Signal::global(|| "All".to_string());
+pub static EMAIL_LIST_FILTER: GlobalSignal<String> = Signal::global(|| "all".to_string());
 pub static ITINERARY: GlobalSignal<Vec<ItineraryItem>> = Signal::global(|| seed_itinerary());
 pub static CLASSIFIERS: GlobalSignal<Option<ClassifiersConfig>> = Signal::global(|| None);
 

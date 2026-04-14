@@ -36,6 +36,7 @@ pub fn Settings() -> Element {
     let mut classifier_saving = use_signal(|| false);
     let mut classifiers = use_signal(|| ClassifiersConfig {
         categories: HashMap::new(),
+        category_titles: HashMap::new(),
     });
     let mut new_category = use_signal(String::new);
 
@@ -165,13 +166,19 @@ pub fn Settings() -> Element {
                                 div { class: "flex flex-col gap-3",
                                     for category in category_names {
                                         {
-                                            let rule = classifiers().categories.get(&category).cloned().unwrap_or(CategoryRule { domains: vec![], subject_keywords: vec![] });
+                                            let cfg_snapshot = classifiers();
+                                            let rule = cfg_snapshot.categories.get(&category).cloned().unwrap_or(CategoryRule { domains: vec![], subject_keywords: vec![] });
+                                            let category_title = cfg_snapshot
+                                                .category_titles
+                                                .get(&category)
+                                                .cloned()
+                                                .unwrap_or_else(|| category.replace('_', " "));
                                             let domains_csv = to_csv(&rule.domains);
                                             let keywords_csv = to_csv(&rule.subject_keywords);
                                             rsx! {
                                                 div { key: "{category}", class: "border border-border rounded-lg p-3",
                                                     div { class: "flex items-center justify-between mb-2",
-                                                        h3 { class: "font-semibold text-foreground", "{category}" }
+                                                        h3 { class: "font-semibold text-foreground", "{category_title}" }
                                                         button {
                                                             class: "text-xs text-red-400",
                                                             onclick: {
