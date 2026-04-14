@@ -95,6 +95,18 @@ pub struct EmailContentResponse {
     pub html_body: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CategoryRule {
+    pub domains: Vec<String>,
+    pub subject_keywords: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClassifiersConfig {
+    pub categories: std::collections::HashMap<String, CategoryRule>,
+    pub category_titles: std::collections::HashMap<String, String>,
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -126,7 +138,8 @@ fn client() -> Result<(reqwest::Client, String), ApiError> {
     if cfg.server_url.trim().is_empty() {
         return Err(ApiError::Server {
             status: 400,
-            message: "Server is not configured yet. Open Settings and connect your server.".to_string(),
+            message: "Server is not configured yet. Open Settings and connect your server."
+                .to_string(),
         });
     }
 
@@ -195,6 +208,49 @@ fn map_trip(raw: gen::TripResponse) -> TripResponse {
     }
 }
 
+fn map_classifiers(raw: gen::ClassifierClassifiersConfig) -> ClassifiersConfig {
+    let categories = raw
+        .categories
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(name, rule)| {
+            (
+                name,
+                CategoryRule {
+                    domains: rule.domains.unwrap_or_default(),
+                    subject_keywords: rule.subject_keywords.unwrap_or_default(),
+                },
+            )
+        })
+        .collect();
+
+    ClassifiersConfig {
+        categories,
+        category_titles: raw.category_titles.unwrap_or_default(),
+    }
+}
+
+fn unmap_classifiers(cfg: &ClassifiersConfig) -> gen::ClassifierClassifiersConfig {
+    let categories = cfg
+        .categories
+        .iter()
+        .map(|(name, rule)| {
+            (
+                name.clone(),
+                gen::ClassifierCategoryRule {
+                    domains: Some(rule.domains.clone()),
+                    subject_keywords: Some(rule.subject_keywords.clone()),
+                },
+            )
+        })
+        .collect();
+
+    gen::ClassifierClassifiersConfig {
+        categories: Some(categories),
+        category_titles: Some(cfg.category_titles.clone()),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Public API functions
 // ---------------------------------------------------------------------------
@@ -259,6 +315,43 @@ pub async fn get_email_content(id: &str) -> Result<EmailContentResponse, ApiErro
         .map_err(|e| ApiError::Network(e.to_string()))?;
 
     handle_response(resp).await
+}
+
+pub async fn get_classifiers() -> Result<ClassifiersConfig, ApiError> {
+    let (client, base) = client()?;
+    let resp = client
+        .get(format!("{base}/classifiers"))
+        .send()
+        .await
+        .map_err(|e| ApiError::Network(e.to_string()))?;
+
+    let raw: gen::ClassifierClassifiersConfig = handle_response(resp).await?;
+    Ok(map_classifiers(raw))
+}
+
+pub async fn update_classifiers(config: &ClassifiersConfig) -> Result<ClassifiersConfig, ApiError> {
+    let (client, base) = client()?;
+    let resp = client
+        .put(format!("{base}/classifiers"))
+        .json(&unmap_classifiers(config))
+        .send()
+        .await
+        .map_err(|e| ApiError::Network(e.to_string()))?;
+
+    let raw: gen::ClassifierClassifiersConfig = handle_response(resp).await?;
+    Ok(map_classifiers(raw))
+}
+
+pub async fn reset_classifiers() -> Result<ClassifiersConfig, ApiError> {
+    let (client, base) = client()?;
+    let resp = client
+        .post(format!("{base}/classifiers/reset"))
+        .send()
+        .await
+        .map_err(|e| ApiError::Network(e.to_string()))?;
+
+    let raw: gen::ClassifierClassifiersConfig = handle_response(resp).await?;
+    Ok(map_classifiers(raw))
 }
 
 pub async fn associate_email_trip(
