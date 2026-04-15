@@ -45,16 +45,71 @@ jobs:
           tar -xzf /tmp/dx.tar.gz -C /usr/local/bin
           dx --version
 
-      - name: Restore debug keystore
-        if: ${{ env.DEBUG_KEYSTORE != '' }}
+      - name: Require stable debug keystore on main builds
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           DEBUG_KEYSTORE: ${{ secrets.DEBUG_KEYSTORE }}
         run: |
+          if [[ -z "$DEBUG_KEYSTORE" ]]; then
+            echo "ERROR: secrets.DEBUG_KEYSTORE is required for reproducible installable dev upgrades." >&2
+            echo "Without it, each CI run generates a new debug signing key and Android treats updates as a different signer." >&2
+            exit 1
+          fi
+
+      - name: Restore debug keystore (when provided)
+        env:
+          DEBUG_KEYSTORE: ${{ secrets.DEBUG_KEYSTORE }}
+        run: |
+          if [[ -z "$DEBUG_KEYSTORE" ]]; then
+            echo "DEBUG_KEYSTORE not set; using runner default debug keystore."
+            exit 0
+          fi
           mkdir -p ~/.android
           echo "$DEBUG_KEYSTORE" | base64 -d > ~/.android/debug.keystore
+          sha256sum ~/.android/debug.keystore
 
       - name: Build debug APK (arm64)
         run: dx build --platform android --target aarch64-linux-android
+
+      - name: Patch generated Android project (version + debug signing)
+        env:
+          VOYAGE_VERSION_CODE: ${{ github.run_number }}
+          VOYAGE_VERSION_NAME: ci-${{ github.run_number }}-${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          gradle = Path("target/dx/voyage/debug/android/app/app/build.gradle.kts")
+          if not gradle.exists():
+              raise SystemExit(f"Generated gradle file not found: {gradle}")
+
+          text = gradle.read_text()
+          text = text.replace("versionCode = 1", f"versionCode = {os.environ['VOYAGE_VERSION_CODE']}")
+          text = text.replace('versionName = "1.0"', f'versionName = "{os.environ["VOYAGE_VERSION_NAME"]}"')
+
+          if 'getByName("debug") {' in text and 'storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")' not in text:
+              marker = "    buildTypes {"
+              signing_block = (
+                  "    signingConfigs {\n"
+                  "        getByName(\"debug\") {\n"
+                  "            storeFile = file(System.getProperty(\"user.home\") + \"/.android/debug.keystore\")\n"
+                  "            storePassword = \"android\"\n"
+                  "            keyAlias = \"androiddebugkey\"\n"
+                  "            keyPassword = \"android\"\n"
+                  "        }\n"
+                  "    }\n"
+              )
+              text = text.replace(marker, signing_block + marker)
+
+          gradle.write_text(text)
+          print(f"Patched {gradle}")
+          PY
+
+      - name: Rebuild debug APK with patched metadata/signing
+        run: |
+          cd target/dx/voyage/debug/android/app
+          ./gradlew --no-daemon :app:assembleDebug
 
       - name: Locate APK
         shell: bash
@@ -67,6 +122,15 @@ jobs:
             exit 1
           fi
           echo "APK_PATH=${APK_PATH}" >> $GITHUB_ENV
+
+      - name: Print APK package/signing metadata
+        shell: bash
+        run: |
+          set -euxo pipefail
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n1)
+          AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -n1)
+          "$APKSIGNER" verify --print-certs "$APK_PATH"
+          "$AAPT" dump badging "$APK_PATH" | grep -E "package:|versionCode|versionName"
 
       - name: Upload APK
         id: upload_apk
